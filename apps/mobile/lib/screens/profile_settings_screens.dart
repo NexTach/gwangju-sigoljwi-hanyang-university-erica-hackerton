@@ -533,7 +533,7 @@ class AppInfoScreen extends StatelessWidget {
             const _SettingsValue(
               icon: Icons.android_rounded,
               title: '앱 버전',
-              value: '0.1.3',
+              value: '0.1.4',
             ),
             _SettingsAction(
               description: '최근 추가된 기능과 변경 내용을 확인해요',
@@ -552,7 +552,7 @@ class AppInfoScreen extends StatelessWidget {
                 ),
                 applicationLegalese: '© 2026 Road DNA',
                 applicationName: 'Road DNA',
-                applicationVersion: '0.1.3',
+                applicationVersion: '0.1.4',
                 context: context,
               ),
               title: '오픈소스 라이선스',
@@ -980,7 +980,7 @@ void _showReleaseNotes(BuildContext context) {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Road DNA 0.1.3',
+              'Road DNA 0.1.4',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 16),

@@ -1,7 +1,7 @@
 # Login brand assets
 
-These files are the official login-brand resources used by the demo login
-screen. Keep their color, shape, and proportions unchanged.
+These files are the official login-brand resources used by the login screen.
+Keep their color, shape, and proportions unchanged.
 
 - `google-g.png`: Google Identity, Sign in with Google branding resources
   - Source: https://developers.google.com/static/identity/images/g-logo.png

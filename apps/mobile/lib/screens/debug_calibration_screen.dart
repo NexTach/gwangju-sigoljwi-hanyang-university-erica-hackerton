@@ -56,9 +56,7 @@ class _DebugCalibrationScreenState
       vibrationRms: double.tryParse(_rmsController.text) ?? -1,
     );
     if (!settings.isValid) {
-      setState(
-        () => _error = '낮음 < 중간 < 높음 < 낙하 순서와 0보다 큰 RMS를 확인해 주세요.',
-      );
+      setState(() => _error = '낮음 < 중간 < 높음 < 낙하 순서와 0보다 큰 RMS를 확인해 주세요.');
       return;
     }
     setState(() {
@@ -96,7 +94,7 @@ class _DebugCalibrationScreenState
             children: [
               RdAlert(
                 message:
-                    '기본값은 시연을 위한 탐색값일 뿐 확정 기준이 아니에요. 실제 휠체어·유모차에 고정한 반복 주행으로 조정하고 기록해 주세요.',
+                    '기본값은 초기 탐색값일 뿐 확정 기준이 아니에요. 실제 휠체어·유모차에 고정한 반복 주행으로 조정하고 기록해 주세요.',
                 title: '임계치를 현장에서 보정해 주세요',
                 tone: RdFeedbackTone.warning,
               ),

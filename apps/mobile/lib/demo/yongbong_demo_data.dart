@@ -380,7 +380,7 @@ abstract final class YongbongDemoData {
             scores: [83, 82, 80],
           ),
           (
-            confidence: 0.81,
+            confidence: 0.7512,
             events: 21,
             latitude: 35.179505,
             longitude: 126.896651,
@@ -389,7 +389,7 @@ abstract final class YongbongDemoData {
             scores: [92, 90, 91],
           ),
           (
-            confidence: 0.72,
+            confidence: 0.6025,
             events: 14,
             latitude: 35.179374,
             longitude: 126.902292,
@@ -398,7 +398,7 @@ abstract final class YongbongDemoData {
             scores: [76, 73, 75],
           ),
           (
-            confidence: 0.69,
+            confidence: 0.6975,
             events: 18,
             latitude: 35.180497,
             longitude: 126.901536,
@@ -407,7 +407,7 @@ abstract final class YongbongDemoData {
             scores: [48, 45, 51],
           ),
           (
-            confidence: 0.77,
+            confidence: 0.6737,
             events: 17,
             latitude: 35.182473,
             longitude: 126.900953,

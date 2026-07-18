@@ -15,7 +15,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.nextach.roaddna.road_dna_mobile"
+        // Keep the current installed app identity while making it the single
+        // canonical Road DNA package for every build type.
+        applicationId = "com.nextach.roaddna.road_dna_mobile.demo"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -24,18 +26,6 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        debug {
-            // Keep the installable prototype isolated from any production-signed
-            // build already present on the device.
-            applicationIdSuffix = ".demo"
-            versionNameSuffix = "-demo"
-        }
-        release {
-            // CI injects a release signing configuration when publishing.
-            // Never fall back to a debug key for production artifacts.
-        }
-    }
 }
 
 kotlin {
