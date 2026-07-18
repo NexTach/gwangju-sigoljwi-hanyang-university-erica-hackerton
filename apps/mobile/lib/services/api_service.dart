@@ -4,6 +4,12 @@ import 'package:uuid/uuid.dart';
 import '../core/app_config.dart';
 import '../core/models.dart';
 
+String formatApiTimestamp(DateTime value) =>
+    DateTime.fromMillisecondsSinceEpoch(
+      value.toUtc().millisecondsSinceEpoch,
+      isUtc: true,
+    ).toIso8601String();
+
 class RoadDnaApiException implements Exception {
   const RoadDnaApiException(this.message);
 
@@ -55,7 +61,7 @@ class RoadDnaApi {
             'appVersion': '0.1.0',
             'deviceModel': 'Flutter device',
             'movementType': movementType.apiName,
-            'startedAt': DateTime.now().toUtc().toIso8601String(),
+            'startedAt': formatApiTimestamp(DateTime.now()),
           },
         );
         return MovementSession.fromJson(response.data!);
@@ -68,7 +74,7 @@ class RoadDnaApi {
     await _request(
       () => _dio.patch<void>(
         '/api/v1/sessions/$sessionId/end',
-        data: {'endedAt': DateTime.now().toUtc().toIso8601String()},
+        data: {'endedAt': formatApiTimestamp(DateTime.now())},
       ),
     );
   }
@@ -98,7 +104,7 @@ class RoadDnaApi {
           '/api/v1/sessions/$sessionId/events',
           data: {
             'anomalyScore': candidate.anomalyScore,
-            'detectedAt': candidate.detectedAt.toUtc().toIso8601String(),
+            'detectedAt': formatApiTimestamp(candidate.detectedAt),
             'gpsAccuracy': location.accuracy,
             'impactLevel': candidate.impactLevel.apiName,
             'latitude': location.latitude,

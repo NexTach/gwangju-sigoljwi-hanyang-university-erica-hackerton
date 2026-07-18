@@ -7,7 +7,7 @@ import 'package:road_dna_design/road_dna_design.dart';
 import '../core/models.dart';
 import '../state/tracking_controller.dart';
 
-class RoadMapView extends StatelessWidget {
+class RoadMapView extends StatefulWidget {
   const RoadMapView({
     required this.center,
     this.barriers = const [],
@@ -35,30 +35,54 @@ class RoadMapView extends StatelessWidget {
   final double zoom;
 
   @override
+  State<RoadMapView> createState() => _RoadMapViewState();
+}
+
+class _RoadMapViewState extends State<RoadMapView> {
+  static const _minimumZoom = 12.0;
+  static const _maximumZoom = 19.0;
+  late final TileProvider _tileProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    _tileProvider = NetworkTileProvider(
+      cachingProvider: kDebugMode
+          ? const DisabledMapCachingProvider()
+          : BuiltInMapCachingProvider.getOrCreateInstance(
+              maxCacheSize: 64 * 1024 * 1024,
+            ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.rdColors;
     return FlutterMap(
       options: MapOptions(
-        initialCenter: center,
-        initialZoom: zoom,
+        initialCenter: widget.center,
+        initialZoom: widget.zoom.clamp(_minimumZoom, _maximumZoom),
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),
+        maxZoom: _maximumZoom,
+        minZoom: _minimumZoom,
       ),
       children: [
         TileLayer(
-          maxZoom: 19,
-          tileProvider: kDebugMode
-              ? NetworkTileProvider(
-                  cachingProvider: const DisabledMapCachingProvider(),
-                )
-              : null,
-          urlTemplate: tileUrlTemplate,
+          evictErrorTileStrategy: EvictErrorTileStrategy.notVisible,
+          keepBuffer: 1,
+          maxNativeZoom: 19,
+          maxZoom: _maximumZoom,
+          minZoom: _minimumZoom,
+          panBuffer: 0,
+          tileProvider: _tileProvider,
+          urlTemplate: widget.tileUrlTemplate,
           userAgentPackageName: 'com.roaddna.mobile',
         ),
-        if (roads.isNotEmpty)
+        if (widget.roads.isNotEmpty)
           PolylineLayer(
-            polylines: roads
+            polylines: widget.roads
                 .map(
                   (road) => Polyline(
                     borderColor: colors.surface,
@@ -79,9 +103,9 @@ class RoadMapView extends StatelessWidget {
                 )
                 .toList(growable: false),
           ),
-        if (routes.isNotEmpty)
+        if (widget.routes.isNotEmpty)
           PolylineLayer(
-            polylines: routes
+            polylines: widget.routes
                 .map(
                   (route) => Polyline(
                     borderColor: colors.surface,
@@ -105,7 +129,7 @@ class RoadMapView extends StatelessWidget {
           ),
         MarkerLayer(
           markers: [
-            for (final road in roads)
+            for (final road in widget.roads)
               Marker(
                 height: RdSize.touchTarget,
                 point: LatLng(road.latitude, road.longitude),
@@ -116,7 +140,9 @@ class RoadMapView extends StatelessWidget {
                       '${road.roadName}, ${road.score == null ? '데이터 없음' : '${road.score}점'}, ${road.grade.label}',
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: onRoadTap == null ? null : () => onRoadTap!(road),
+                    onTap: widget.onRoadTap == null
+                        ? null
+                        : () => widget.onRoadTap!(road),
                     child: Center(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -137,7 +163,7 @@ class RoadMapView extends StatelessWidget {
                   ),
                 ),
               ),
-            for (final barrier in barriers)
+            for (final barrier in widget.barriers)
               Marker(
                 height: 44,
                 point: LatLng(
@@ -161,7 +187,7 @@ class RoadMapView extends StatelessWidget {
                   ),
                 ),
               ),
-            if (currentLocation case final location?)
+            if (widget.currentLocation case final location?)
               Marker(
                 height: 48,
                 point: LatLng(location.latitude, location.longitude),
@@ -185,7 +211,7 @@ class RoadMapView extends StatelessWidget {
               ),
           ],
         ),
-        if (showAttribution)
+        if (widget.showAttribution)
           const RichAttributionWidget(
             attributions: [TextSourceAttribution('OpenStreetMap contributors')],
           ),

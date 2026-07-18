@@ -105,6 +105,7 @@ class TrackingController extends Notifier<TrackingState> {
   StreamSubscription<LocationReading>? _locationSubscription;
   StreamSubscription<MotionSample>? _motionSubscription;
   SensorWindowAnalyzer? _analyzer;
+  final GravityFilter _telemetryGravityFilter = GravityFilter();
   LocationReading? _distanceAnchor;
   DateTime _lastTelemetryUpdate = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -126,6 +127,8 @@ class TrackingController extends Notifier<TrackingState> {
       movementType: movementType,
       status: TrackingStatus.starting,
     );
+    _telemetryGravityFilter.reset();
+    _lastTelemetryUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     final locationService = ref.read(locationServiceProvider);
     MovementSession? session;
     try {
@@ -194,6 +197,7 @@ class TrackingController extends Notifier<TrackingState> {
     _locationSubscription = null;
     _motionSubscription = null;
     _analyzer?.reset();
+    _telemetryGravityFilter.reset();
     try {
       await ref.read(apiProvider).endSession(session.sessionId);
       await ref
@@ -219,6 +223,8 @@ class TrackingController extends Notifier<TrackingState> {
   void reset() {
     _distanceAnchor = null;
     _analyzer?.reset();
+    _telemetryGravityFilter.reset();
+    _lastTelemetryUpdate = DateTime.fromMillisecondsSinceEpoch(0);
     state = const TrackingState.idle();
   }
 
@@ -270,11 +276,12 @@ class TrackingController extends Notifier<TrackingState> {
 
   void _onMotion(MotionSample sample) {
     if (state.status != TrackingStatus.active) return;
+    final linearSample = _telemetryGravityFilter.filter(sample);
     final now = sample.recordedAt;
     if (now.difference(_lastTelemetryUpdate) >=
         const Duration(milliseconds: 250)) {
       _lastTelemetryUpdate = now;
-      state = state.copyWith(lastSensorMagnitude: sample.magnitude);
+      state = state.copyWith(lastSensorMagnitude: linearSample.magnitude);
     }
     final candidate = _analyzer?.add(sample);
     if (candidate != null) unawaited(_handleCandidate(candidate));

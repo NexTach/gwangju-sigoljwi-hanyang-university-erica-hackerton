@@ -80,7 +80,8 @@ class _DebugCalibrationScreenState
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final calibration = ref.watch(calibrationProvider);
-    final tracking = ref.watch(trackingProvider);
+    final sensorPreview = ref.watch(sensorPreviewProvider);
+    final preview = sensorPreview.value;
     return Scaffold(
       appBar: RdNavigation(
         onBack: () => context.pop(),
@@ -113,12 +114,16 @@ class _DebugCalibrationScreenState
                           ),
                         ),
                         RdBadge(
-                          dot: tracking.status == TrackingStatus.active,
-                          label: tracking.status == TrackingStatus.active
-                              ? '측정 중'
-                              : '측정 대기',
-                          tone: tracking.status == TrackingStatus.active
+                          dot: preview != null,
+                          label: sensorPreview.hasError
+                              ? '읽기 실패'
+                              : preview == null
+                              ? '연결 중'
+                              : '실시간',
+                          tone: preview != null
                               ? RdBadgeTone.success
+                              : sensorPreview.hasError
+                              ? RdBadgeTone.critical
                               : RdBadgeTone.neutral,
                         ),
                       ],
@@ -127,18 +132,39 @@ class _DebugCalibrationScreenState
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '${tracking.lastSensorMagnitude.toStringAsFixed(2)} m/s²',
+                        '${(preview?.linearMagnitude ?? 0).toStringAsFixed(2)} m/s²',
                         style: Theme.of(context).textTheme.displayMedium,
                       ),
                     ),
                     const SizedBox(height: RdSpacing.x2),
                     LinearProgressIndicator(
                       minHeight: 10,
-                      value: (tracking.lastSensorMagnitude / 25).clamp(0, 1),
+                      value: ((preview?.linearMagnitude ?? 0) / 25).clamp(0, 1),
+                    ),
+                    const SizedBox(height: RdSpacing.x3),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        preview == null
+                            ? '센서 신호를 기다리고 있어요.'
+                            : 'X ${preview.x.toStringAsFixed(2)} · Y ${preview.y.toStringAsFixed(2)} · Z ${preview.z.toStringAsFixed(2)}\n'
+                                  '원시 ${preview.rawMagnitude.toStringAsFixed(2)} m/s² · ${preview.sampleRateHz.toStringAsFixed(1)} Hz',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.rdColors.contentSecondary,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
+              if (sensorPreview.hasError) ...[
+                const SizedBox(height: RdSpacing.x3),
+                const RdAlert(
+                  message: '기기에서 가속도 센서 신호를 받지 못했어요.',
+                  title: '센서 연결을 확인해 주세요',
+                  tone: RdFeedbackTone.critical,
+                ),
+              ],
               const SizedBox(height: RdSpacing.x6),
               Text(
                 '2초 창 임계치',
@@ -222,7 +248,8 @@ class _DebugCalibrationScreenState
                 },
                 tone: RdButtonTone.ghost,
               ),
-              if (tracking.status == TrackingStatus.active) ...[
+              if (ref.watch(trackingProvider).status ==
+                  TrackingStatus.active) ...[
                 const SizedBox(height: RdSpacing.x6),
                 RdButton(
                   fullWidth: true,

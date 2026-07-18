@@ -60,6 +60,20 @@ describe("Road DNA API", () => {
     });
   });
 
+  it("accepts Flutter timestamps with microseconds", async () => {
+    const response = await makeApp().inject({
+      method: "POST",
+      payload: {
+        anonymousUserId: randomUUID(),
+        movementType: "WHEELCHAIR",
+        startedAt: "2026-07-18T08:50:39.123456Z",
+      },
+      url: "/api/v1/sessions",
+    });
+
+    expect(response.statusCode).toBe(201);
+  });
+
   it("runs the session, event, road and dashboard lifecycle", async () => {
     const app = makeApp();
     const startedAt = new Date(Date.now() - 60_000).toISOString();

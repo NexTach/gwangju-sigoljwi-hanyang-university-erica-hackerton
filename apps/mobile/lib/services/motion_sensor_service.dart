@@ -35,7 +35,13 @@ class DeviceMotionSensorService implements MotionSensorService {
             gyroY = event.y;
             gyroZ = event.z;
           },
-          onError: controller.addError,
+          // A gyroscope is optional for impact scoring. Keep accelerometer
+          // collection alive on devices without one and score gyro as zero.
+          onError: (Object error, StackTrace stackTrace) {
+            gyroX = 0;
+            gyroY = 0;
+            gyroZ = 0;
+          },
         );
         accelerometerSubscription = accelerometerEventStream(
           samplingPeriod: const Duration(milliseconds: 40),

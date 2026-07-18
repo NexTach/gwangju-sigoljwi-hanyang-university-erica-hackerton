@@ -53,7 +53,9 @@ export type ConfidenceLevel = Static<typeof ConfidenceLevelSchema>;
 // Keep the wire contracts self-validating in TypeBox as well as Fastify/Ajv.
 // TypeBox's standalone Value.Check does not install format validators.
 export const IsoDateSchema = Type.String({
-  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,3})?Z$",
+  // JavaScript serializes milliseconds while Dart may serialize microseconds.
+  // Accept both standard UTC representations at the API boundary.
+  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$",
 });
 export const UuidSchema = Type.String({
   pattern:

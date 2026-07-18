@@ -1,6 +1,7 @@
 import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
 import {
+  CreateSessionRequestSchema,
   CreateSensorEventRequestSchema,
   MovementTypeSchema,
   RoadMapItemSchema,
@@ -26,6 +27,16 @@ describe("API contracts", () => {
         severity: 1.2,
       }),
     ).toBe(false);
+  });
+
+  it("accepts Flutter UTC timestamps with microseconds", () => {
+    expect(
+      Value.Check(CreateSessionRequestSchema, {
+        anonymousUserId: "d189be1f-e2d5-4b90-8cec-360ec343be99",
+        movementType: "WHEELCHAIR",
+        startedAt: "2026-07-18T13:10:00.123456Z",
+      }),
+    ).toBe(true);
   });
 
   it("allows unknown road scores only as null", () => {
