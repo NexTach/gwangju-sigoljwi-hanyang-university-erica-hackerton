@@ -72,6 +72,13 @@ flutter run \
 `--dart-define=ROAD_DNA_DEMO_MODE=true`를 추가합니다. 실제 앱에서는 이 값을
 사용하지 않아야 합니다.
 
+프로토타입 시연용 APK는 다음 명령으로 빌드합니다.
+
+```bash
+flutter build apk --release \
+  --dart-define=ROAD_DNA_DEMO_MODE=true
+```
+
 ## 핵심 문서
 
 - [기술 아키텍처](docs/ARCHITECTURE.md)
