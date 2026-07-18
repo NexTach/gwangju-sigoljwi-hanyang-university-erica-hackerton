@@ -5,7 +5,7 @@ import type {
 
 export const maximumGpsAccuracyMeters = 25;
 export const minimumMovementSpeedMetersPerSecond = 0.25;
-export const maximumDropPeak = 25;
+export const maximumDropPeak = 22;
 export const minimumSeverity = 0.3;
 
 export function classifyEvent(
@@ -21,7 +21,7 @@ export function classifyEvent(
     return "REJECTED_STATIONARY";
   }
   if (
-    event.peakValue > maximumDropPeak &&
+    event.peakValue >= maximumDropPeak &&
     (event.window?.peakCount ?? 1) <= 1
   ) {
     return "HELD_DROP_PATTERN";

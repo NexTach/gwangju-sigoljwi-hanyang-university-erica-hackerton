@@ -20,9 +20,14 @@ import mysql, {
 } from "mysql2/promise";
 import type { AppConfig } from "../config.js";
 import { calculateRoadScore, type RoadAggregate } from "../domain/scoring.js";
+import {
+  matchYongbongRoadHint,
+  yongbongBounds,
+} from "../support/yongbong-scenario.js";
 import type {
   RecordEventResult,
   RoadRepository,
+  RoadSegmentSeed,
   StoredSession,
 } from "./repository.js";
 
@@ -373,18 +378,33 @@ export class MysqlRoadRepository implements RoadRepository {
       Array<
         RowDataPacket & {
           accessibility_index: number | null;
-          high_confidence_count: number;
+          high_confidence_count: number | null;
           road_count: number;
+          total_road_count: number;
         }
       >
     >(
       `SELECT
-         ROUND(AVG(score), 1) AS accessibility_index,
-         COUNT(*) AS road_count,
-         SUM(confidence_level = 'HIGH') AS high_confidence_count
-       FROM road_scores
-       WHERE (:movementType IS NULL OR movement_type = :movementType)`,
-      { movementType: movementType ?? null },
+         ROUND(AVG(scores.score), 1) AS accessibility_index,
+         COUNT(DISTINCT CASE
+           WHEN scores.score IS NOT NULL THEN roads.road_segment_id
+         END) AS road_count,
+         COUNT(DISTINCT roads.road_segment_id) AS total_road_count,
+         COUNT(DISTINCT CASE
+           WHEN scores.confidence_level = 'HIGH' THEN roads.road_segment_id
+         END) AS high_confidence_count
+       FROM road_segments roads
+       LEFT JOIN road_scores scores
+         ON scores.road_segment_id = roads.road_segment_id
+        AND (:movementType IS NULL OR scores.movement_type = :movementType)
+       WHERE ST_Latitude(roads.location)
+               BETWEEN :minimumLatitude AND :maximumLatitude
+         AND ST_Longitude(roads.location)
+               BETWEEN :minimumLongitude AND :maximumLongitude`,
+      {
+        ...yongbongBounds,
+        movementType: movementType ?? null,
+      },
     );
     const [eventRows] = await this.pool.execute<
       Array<
@@ -400,9 +420,18 @@ export class MysqlRoadRepository implements RoadRepository {
        FROM sensor_events events
        INNER JOIN movement_sessions sessions
          ON sessions.session_id = events.session_id
+       INNER JOIN road_segments roads
+         ON roads.road_segment_id = events.road_segment_id
        WHERE events.event_status = 'ACCEPTED'
-         AND (:movementType IS NULL OR events.movement_type = :movementType)`,
-      { movementType: movementType ?? null },
+         AND (:movementType IS NULL OR events.movement_type = :movementType)
+         AND ST_Latitude(roads.location)
+               BETWEEN :minimumLatitude AND :maximumLatitude
+         AND ST_Longitude(roads.location)
+               BETWEEN :minimumLongitude AND :maximumLongitude`,
+      {
+        ...yongbongBounds,
+        movementType: movementType ?? null,
+      },
     );
     const score = scoreRows[0]!;
     const events = eventRows[0]!;
@@ -411,9 +440,9 @@ export class MysqlRoadRepository implements RoadRepository {
       acceptedEventCount: events.accepted_event_count,
       activeContributors: events.active_contributors,
       analyzedDistanceMeters: score.road_count * 10,
-      highConfidenceRoadCount: score.high_confidence_count,
+      highConfidenceRoadCount: score.high_confidence_count ?? 0,
       roadCount: score.road_count,
-      unknownRoadCount: 0,
+      unknownRoadCount: score.total_road_count - score.road_count,
     };
   }
 
@@ -438,11 +467,19 @@ export class MysqlRoadRepository implements RoadRepository {
        INNER JOIN road_segments roads
          ON roads.road_segment_id = scores.road_segment_id
        WHERE (:movementType IS NULL OR scores.movement_type = :movementType)
+         AND ST_Latitude(roads.location)
+               BETWEEN :minimumLatitude AND :maximumLatitude
+         AND ST_Longitude(roads.location)
+               BETWEEN :minimumLongitude AND :maximumLongitude
        ORDER BY
          (100 - scores.score) * (0.5 + scores.confidence) DESC,
          scores.event_count DESC
        LIMIT :limit`,
-      { limit, movementType: movementType ?? null },
+      {
+        ...yongbongBounds,
+        limit,
+        movementType: movementType ?? null,
+      },
     );
     return rows.map((row) => ({
       confidence: row.confidence,
@@ -465,10 +502,33 @@ export class MysqlRoadRepository implements RoadRepository {
     }
   }
 
+  async upsertRoadSegments(roads: readonly RoadSegmentSeed[]): Promise<void> {
+    if (roads.length === 0) return;
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      for (const road of roads) {
+        await this.upsertRoadSegment(connection, road);
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
   private async findOrCreateRoad(
     connection: PoolConnection,
     event: CreateSensorEventRequest,
   ): Promise<string> {
+    const hintedRoad = matchYongbongRoadHint(event);
+    if (hintedRoad) {
+      await this.upsertRoadSegment(connection, hintedRoad);
+      return hintedRoad.roadSegmentId;
+    }
+
     const [rows] = await connection.execute<
       Array<RowDataPacket & { road_segment_id: string }>
     >(
@@ -510,6 +570,30 @@ export class MysqlRoadRepository implements RoadRepository {
       },
     );
     return roadSegmentId;
+  }
+
+  private async upsertRoadSegment(
+    connection: PoolConnection,
+    road: RoadSegmentSeed,
+  ): Promise<void> {
+    await connection.execute(
+      `INSERT INTO road_segments (
+         road_segment_id, road_name, location
+       ) VALUES (
+         :roadSegmentId,
+         :roadName,
+         ST_SRID(POINT(:longitude, :latitude), 4326)
+       )
+       ON DUPLICATE KEY UPDATE
+         road_name = :roadName,
+         location = ST_SRID(POINT(:longitude, :latitude), 4326)`,
+      {
+        latitude: road.latitude,
+        longitude: road.longitude,
+        roadName: road.roadName,
+        roadSegmentId: road.roadSegmentId,
+      },
+    );
   }
 
   private async updateScore(

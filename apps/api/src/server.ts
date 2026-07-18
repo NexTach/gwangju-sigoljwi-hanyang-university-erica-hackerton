@@ -1,13 +1,13 @@
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createRuntimeDependencies } from "./runtime.js";
-import { seedDemoData } from "./support/demo-data.js";
+import { seedYongbongScenario } from "./support/yongbong-scenario.js";
 
 const config = loadConfig();
 const dependencies = createRuntimeDependencies(config);
 
 if (config.demoMode && !config.mysql) {
-  await seedDemoData(dependencies.repository);
+  await seedYongbongScenario(dependencies.repository);
 }
 
 const app = buildApp({

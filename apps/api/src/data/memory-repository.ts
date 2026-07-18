@@ -17,9 +17,14 @@ import {
   type RoadAggregate,
   type RoadScoreResult,
 } from "../domain/scoring.js";
+import {
+  isWithinYongbongBounds,
+  matchYongbongRoadHint,
+} from "../support/yongbong-scenario.js";
 import type {
   RecordEventResult,
   RoadRepository,
+  RoadSegmentSeed,
   StoredSession,
 } from "./repository.js";
 
@@ -94,13 +99,17 @@ export class MemoryRoadRepository implements RoadRepository {
     let roadSegmentId: string | null = null;
 
     if (status === "ACCEPTED") {
-      const existing = [...this.roads.values()]
-        .map((road) => ({
-          distance: distanceMeters(road, event),
-          road,
-        }))
-        .filter(({ distance }) => distance <= 10)
-        .sort((first, second) => first.distance - second.distance)[0]?.road;
+      const hintedRoad = matchYongbongRoadHint(event);
+      if (hintedRoad) await this.upsertRoadSegments([hintedRoad]);
+      const existing = hintedRoad
+        ? this.roads.get(hintedRoad.roadSegmentId)
+        : [...this.roads.values()]
+            .map((road) => ({
+              distance: distanceMeters(road, event),
+              road,
+            }))
+            .filter(({ distance }) => distance <= 10)
+            .sort((first, second) => first.distance - second.distance)[0]?.road;
 
       const road =
         existing ??
@@ -180,7 +189,11 @@ export class MemoryRoadRepository implements RoadRepository {
   async getOverview(
     movementType?: MovementType,
   ): Promise<DashboardOverviewResponse> {
-    const roadScores = [...this.roads.values()].flatMap((road) =>
+    const scopedRoads = [...this.roads.values()].filter(isWithinYongbongBounds);
+    const scopedRoadIds = new Set(
+      scopedRoads.map((road) => road.roadSegmentId),
+    );
+    const roadScores = scopedRoads.flatMap((road) =>
       (movementType ? [movementType] : movementTypes).map((type) =>
         this.toRoadMapItem(road, type),
       ),
@@ -198,7 +211,15 @@ export class MemoryRoadRepository implements RoadRepository {
     const accepted = this.events.filter(
       (event) =>
         event.status === "ACCEPTED" &&
+        event.roadSegmentId !== null &&
+        scopedRoadIds.has(event.roadSegmentId) &&
         (!movementType || event.event.movementType === movementType),
+    );
+    const knownRoadIds = new Set(known.map((road) => road.roadSegmentId));
+    const highConfidenceRoadIds = new Set(
+      known
+        .filter((road) => road.confidenceLevel === "HIGH")
+        .map((road) => road.roadSegmentId),
     );
 
     return {
@@ -207,12 +228,10 @@ export class MemoryRoadRepository implements RoadRepository {
       activeContributors: new Set(
         accepted.map((event) => event.anonymousUserId),
       ).size,
-      analyzedDistanceMeters: known.length * 10,
-      highConfidenceRoadCount: known.filter(
-        (road) => road.confidenceLevel === "HIGH",
-      ).length,
-      roadCount: known.length,
-      unknownRoadCount: roadScores.length - known.length,
+      analyzedDistanceMeters: knownRoadIds.size * 10,
+      highConfidenceRoadCount: highConfidenceRoadIds.size,
+      roadCount: knownRoadIds.size,
+      unknownRoadCount: scopedRoads.length - knownRoadIds.size,
     };
   }
 
@@ -221,6 +240,7 @@ export class MemoryRoadRepository implements RoadRepository {
     movementType?: MovementType,
   ): Promise<PriorityRoad[]> {
     return [...this.roads.values()]
+      .filter(isWithinYongbongBounds)
       .flatMap((road) =>
         (movementType ? [movementType] : movementTypes).map((type) =>
           this.toRoadMapItem(road, type),
@@ -260,6 +280,21 @@ export class MemoryRoadRepository implements RoadRepository {
 
   async ping(): Promise<boolean> {
     return true;
+  }
+
+  async upsertRoadSegments(roads: readonly RoadSegmentSeed[]): Promise<void> {
+    const now = new Date().toISOString();
+    for (const input of roads) {
+      const existing = this.roads.get(input.roadSegmentId);
+      this.roads.set(input.roadSegmentId, {
+        createdAt: existing?.createdAt ?? now,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        roadName: input.roadName,
+        roadSegmentId: input.roadSegmentId,
+        updatedAt: existing?.updatedAt ?? now,
+      });
+    }
   }
 
   private createRoad(location: {

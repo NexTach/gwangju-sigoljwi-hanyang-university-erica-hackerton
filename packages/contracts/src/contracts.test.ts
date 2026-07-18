@@ -33,6 +33,25 @@ describe("Describe API 계약 검증", () => {
     });
   });
 
+  describe("Context 앱이 정본 도로 힌트를 함께 보낸 경우", () => {
+    it("It 선택적 UUID 힌트를 허용한다", () => {
+      expect(
+        Value.Check(CreateSensorEventRequestSchema, {
+          anomalyScore: 0.82,
+          detectedAt: "2026-07-18T13:10:00Z",
+          gpsAccuracy: 4.2,
+          impactLevel: "HIGH_IMPACT",
+          latitude: 35.17718,
+          longitude: 126.901104,
+          movementType: "WHEELCHAIR",
+          peakValue: 3.42,
+          roadSegmentIdHint: "10000000-0000-4000-8000-000000000204",
+          severity: 0.72,
+        }),
+      ).toBe(true);
+    });
+  });
+
   describe("Context Flutter가 마이크로초 UTC 시각을 보낸 경우", () => {
     it("It 세션 요청을 허용한다", () => {
       expect(

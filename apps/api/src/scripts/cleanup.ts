@@ -1,6 +1,7 @@
 import type { ResultSetHeader } from "mysql2";
 import { loadConfig } from "../config.js";
 import { createMysqlPool } from "../data/mysql-repository.js";
+import { cleanupExpiredData } from "../support/retention-cleanup.js";
 
 const config = loadConfig();
 if (!config.mysql) {
@@ -21,48 +22,18 @@ const connection = await pool.getConnection();
 
 try {
   await connection.beginTransaction();
-  const [traversals] = await connection.execute<ResultSetHeader>(
-    `DELETE FROM road_traversals
-     WHERE first_detected_at < :cutoff`,
-    { cutoff },
-  );
-  const [events] = await connection.execute<ResultSetHeader>(
-    `DELETE FROM sensor_events
-     WHERE detected_at < :cutoff`,
-    { cutoff },
-  );
-  const [sessions] = await connection.execute<ResultSetHeader>(
-    `DELETE session
-     FROM movement_sessions session
-     LEFT JOIN sensor_events event
-       ON event.session_id = session.session_id
-     LEFT JOIN road_traversals traversal
-       ON traversal.session_id = session.session_id
-     WHERE session.status <> 'ACTIVE'
-       AND session.ended_at < :cutoff
-       AND event.event_id IS NULL
-       AND traversal.session_id IS NULL`,
-    { cutoff },
-  );
-  const [users] = await connection.execute<ResultSetHeader>(
-    `DELETE anonymous
-     FROM anonymous_users anonymous
-     LEFT JOIN movement_sessions session
-       ON session.anonymous_user_id = anonymous.user_id
-     WHERE session.session_id IS NULL
-       AND anonymous.created_at < :cutoff`,
-    { cutoff },
-  );
+  const deleted = await cleanupExpiredData(async (statement, values) => {
+    const [result] = await connection.execute<ResultSetHeader>(
+      statement,
+      values,
+    );
+    return result;
+  }, cutoff);
   await connection.commit();
   console.log(
     JSON.stringify({
       cutoff: cutoff.toISOString(),
-      deleted: {
-        anonymousUsers: users.affectedRows,
-        events: events.affectedRows,
-        sessions: sessions.affectedRows,
-        traversals: traversals.affectedRows,
-      },
+      deleted,
       retentionDays: parsedDays,
     }),
   );

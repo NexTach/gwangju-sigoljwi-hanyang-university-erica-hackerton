@@ -35,6 +35,7 @@ export const CreateSensorEventRequestSchema = Type.Object(
     longitude: LongitudeSchema,
     movementType: MovementTypeSchema,
     peakValue: Type.Number({ minimum: 0 }),
+    roadSegmentIdHint: Type.Optional(UuidSchema),
     severity: Type.Number({ maximum: 1, minimum: 0 }),
     speed: Type.Optional(Type.Number({ maximum: 30, minimum: 0 })),
     window: Type.Optional(SensorWindowSchema),

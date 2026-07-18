@@ -38,7 +38,7 @@ describe("Describe classifyEvent", () => {
       expect(
         classifyEvent(
           candidate({
-            peakValue: 25.1,
+            peakValue: 22,
             window: { ...candidate().window!, peakCount: 1 },
           }),
         ),
@@ -52,6 +52,14 @@ describe("Describe classifyEvent", () => {
   describe("Context 모든 안전 기준을 충족한 경우", () => {
     it("It 이벤트를 승인한다", () => {
       expect(classifyEvent(candidate())).toBe("ACCEPTED");
+      expect(
+        classifyEvent(
+          candidate({
+            peakValue: 21.99,
+            window: { ...candidate().window!, peakCount: 1 },
+          }),
+        ),
+      ).toBe("ACCEPTED");
     });
   });
 });

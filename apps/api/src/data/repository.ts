@@ -20,6 +20,13 @@ export interface RecordEventResult {
   roadSegmentId: string | null;
 }
 
+export interface RoadSegmentSeed {
+  latitude: number;
+  longitude: number;
+  roadName: string;
+  roadSegmentId: string;
+}
+
 export interface RoadRepository {
   close(): Promise<void>;
   createSession(input: CreateSessionRequest): Promise<StoredSession>;
@@ -38,6 +45,7 @@ export interface RoadRepository {
     event: CreateSensorEventRequest,
     status: EventStatus,
   ): Promise<RecordEventResult>;
+  upsertRoadSegments(roads: readonly RoadSegmentSeed[]): Promise<void>;
 }
 
 export interface EventDeduplicator {
