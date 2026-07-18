@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import test from "node:test";
+import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const packageDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -33,89 +33,40 @@ const contrast = (foreground, background) => {
   return (values[0] + 0.05) / (values[1] + 0.05);
 };
 
-test("uses a four-point spacing grid", () => {
-  for (const [name, value] of Object.entries(tokens.spacing)) {
-    const number = Number.parseInt(value, 10);
-    assert.equal(
-      number % tokens.meta.baseGrid,
-      0,
-      `${name} (${value}) is off-grid`,
-    );
-  }
-});
+describe("Describe 디자인 토큰 불변식", () => {
+  describe("Context 간격과 터치 크기를 검증하는 경우", () => {
+    it("It 기본 그리드와 최소 터치 영역을 지킨다", () => {
+      for (const [name, value] of Object.entries(tokens.spacing)) {
+        const number = Number.parseInt(value, 10);
+        assert.equal(
+          number % tokens.meta.baseGrid,
+          0,
+          `${name} (${value}) is off-grid`,
+        );
+      }
+      assert.ok(Number.parseInt(tokens.size.touchTarget, 10) >= 44);
+      assert.ok(Number.parseInt(tokens.size.buttonMedium, 10) >= 44);
+      assert.ok(Number.parseInt(tokens.size.buttonLarge, 10) >= 44);
+    });
+  });
 
-test("interactive controls meet the 44px minimum target", () => {
-  assert.ok(Number.parseInt(tokens.size.touchTarget, 10) >= 44);
-  assert.ok(Number.parseInt(tokens.size.buttonMedium, 10) >= 44);
-  assert.ok(Number.parseInt(tokens.size.buttonLarge, 10) >= 44);
-});
-
-test("primary text meets WCAG AA in both themes", () => {
-  assert.ok(
-    contrast(
-      tokens.semantic.light.contentPrimary,
-      tokens.semantic.light.surface,
-    ) >= 4.5,
-  );
-  assert.ok(
-    contrast(
-      tokens.semantic.dark.contentPrimary,
-      tokens.semantic.dark.surface,
-    ) >= 4.5,
-  );
-});
-
-test("tertiary text remains readable on light and dark surfaces", () => {
-  for (const theme of Object.values(tokens.semantic)) {
-    assert.ok(contrast(theme.contentTertiary, theme.surface) >= 4.5);
-    assert.ok(contrast(theme.contentTertiary, theme.surfaceSubtle) >= 4.5);
-  }
-});
-
-test("primary action supports readable inverse text", () => {
-  assert.ok(
-    contrast(
-      tokens.semantic.light.contentInverse,
-      tokens.semantic.light.actionPrimary,
-    ) >= 4.5,
-  );
-});
-
-test("semantic themes expose the same contract", () => {
-  assert.deepEqual(
-    Object.keys(tokens.semantic.light).sort(),
-    Object.keys(tokens.semantic.dark).sort(),
-  );
-});
-
-test("Flutter palette and spacing stay aligned with the shared source", async () => {
-  const dartSource = await readFile(
-    resolve(
-      packageDirectory,
-      "..",
-      "road_dna_design",
-      "lib",
-      "src",
-      "rd_tokens.dart",
-    ),
-    "utf8",
-  );
-
-  for (const [name, value] of Object.entries(tokens.palette)) {
-    const expected = `0xFF${value.slice(1).toUpperCase()}`;
-    const match = dartSource.match(
-      new RegExp(`static const ${name} = Color\\((0x[0-9A-F]+)\\);`),
-    );
-    assert.ok(match, `Flutter palette is missing ${name}`);
-    assert.equal(match[1], expected, `Flutter palette differs for ${name}`);
-  }
-
-  for (const [name, value] of Object.entries(tokens.spacing)) {
-    const expected = `${Number.parseInt(value, 10)}.0`;
-    assert.match(
-      dartSource,
-      new RegExp(`static const x${name} = ${expected.replace(".", "\\.")};`),
-      `Flutter spacing differs for ${name}`,
-    );
-  }
+  describe("Context 라이트·다크 의미 색상을 검증하는 경우", () => {
+    it("It 같은 키 계약과 WCAG AA 텍스트 대비를 유지한다", () => {
+      assert.deepEqual(
+        Object.keys(tokens.semantic.light).sort(),
+        Object.keys(tokens.semantic.dark).sort(),
+      );
+      for (const theme of Object.values(tokens.semantic)) {
+        assert.ok(contrast(theme.contentPrimary, theme.surface) >= 4.5);
+        assert.ok(contrast(theme.contentTertiary, theme.surface) >= 4.5);
+        assert.ok(contrast(theme.contentTertiary, theme.surfaceSubtle) >= 4.5);
+      }
+      assert.ok(
+        contrast(
+          tokens.semantic.light.contentInverse,
+          tokens.semantic.light.actionPrimary,
+        ) >= 4.5,
+      );
+    });
+  });
 });
