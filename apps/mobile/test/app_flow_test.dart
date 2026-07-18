@@ -148,23 +148,29 @@ void main() {
         ),
       );
 
-      await _pumpUntil(tester, find.text('Road DNA 측정 시작'));
-      expect(find.text('명시적 데모 센서'), findsOneWidget);
+      await _pumpUntil(tester, find.text('동의하고 계속하기'));
+      await tester.tap(find.text('동의하고 계속하기'));
+      await _pumpUntil(tester, find.text('뭐라고 불러드릴까요?'));
+      await tester.tap(find.text('시작하기'));
+      await _pumpUntil(tester, find.text('산책 시작하기'));
       expect(tester.takeException(), isNull);
 
-      await tester.tap(find.text('Road DNA 측정 시작'));
-      await _pumpUntil(tester, find.text('어떻게 이동하고 있나요?'));
+      await tester.tap(find.text('산책 시작하기'));
+      await _pumpUntil(tester, find.text('이동 방식을 알려주세요'));
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.text('휴대폰 고정 확인'), findsOneWidget);
+      expect(find.text('휠체어'), findsOneWidget);
+      expect(find.text('유모차'), findsOneWidget);
+      expect(find.text('일반 보행'), findsOneWidget);
 
-      await tester.drag(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -560),
-      );
-      await tester.pump();
-      await tester.tap(find.text('이 유형으로 측정 시작'));
-      await _pumpUntil(tester, find.text('도로 분석 중'));
-      expect(find.text('측정 종료'), findsOneWidget);
+      await tester.tap(find.text('다음'));
+      await _pumpUntil(tester, find.text('경로를 비교해보세요'));
+      await _pumpUntil(tester, find.text('안전한 경로로 출발'));
+      expect(find.byType(ChoiceChip), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('안전한 경로로 출발'));
+      await _pumpUntil(tester, find.text('함께 걷는 중'));
+      expect(find.text('종료'), findsOneWidget);
+      expect(tester.takeException(), isNull);
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(RoadDnaApp)),
@@ -173,9 +179,10 @@ void main() {
       await _pumpUntil(tester, find.text('이동 충격 패턴을 감지했어요'));
       expect(container.read(trackingProvider).acceptedEvents, 1);
       expect(container.read(trackingProvider).status, TrackingStatus.active);
+      expect(tester.takeException(), isNull);
 
       await tester.pump(const Duration(milliseconds: 500));
-      await tester.tap(find.text('측정 종료'));
+      await tester.tap(find.text('종료'));
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 20)),
       );
@@ -187,12 +194,12 @@ void main() {
         }
       }
       expect(container.read(trackingProvider).status, TrackingStatus.completed);
-      await _pumpUntil(tester, find.text('이동이 도시 데이터가 됐어요'));
-      expect(
-        find.text('원본 센서 신호는 전송하지 않았고, 수용된 충격 후보와 도로 구간만 집계했어요.'),
-        findsOneWidget,
-      );
+      await _pumpUntil(tester, find.text('산책 잘 하셨어요'));
       expect(tester.takeException(), isNull);
+      expect(find.text('오늘의 기록'), findsOneWidget);
+      expect(find.text('1km의 평탄한 보도를 지났어요'), findsOneWidget);
+      expect(find.text('공유하기'), findsOneWidget);
+      expect(find.text('경로 저장'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -224,8 +231,8 @@ void main() {
       ),
     );
 
-    await _pumpUntil(tester, find.text('권한 허용하고 시작'));
-    await tester.tap(find.text('권한 허용하고 시작'));
+    await _pumpUntil(tester, find.text('동의하고 계속하기'));
+    await tester.tap(find.text('동의하고 계속하기'));
     await _pumpUntil(tester, find.text('기기 설정 열기'));
     expect(find.text('설정에서 권한을 허용해 주세요'), findsOneWidget);
     expect(tester.takeException(), isNull);

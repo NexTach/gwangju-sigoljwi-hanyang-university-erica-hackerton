@@ -1,32 +1,22 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:road_dna_design/road_dna_design.dart';
 
 import '../core/models.dart';
-import '../services/location_service.dart';
 import '../state/providers.dart';
-import '../state/tracking_controller.dart';
-import '../ui/road_detail_sheet.dart';
-import '../ui/road_map_view.dart';
+import '../ui/companion_map.dart';
+import '../ui/companion_theme.dart';
+import '../ui/companion_widgets.dart';
+import '../ui/demo_profile_state.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  MovementType _movementType = MovementType.wheelchair;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
+    final profile = ref.watch(demoProfileProvider);
     final location = ref.watch(currentLocationProvider).value;
-    final access = ref.watch(locationAccessProvider).value;
     final latitude = location?.latitude ?? 35.15995;
     final longitude = location?.longitude ?? 126.85315;
     final roads = ref.watch(
@@ -34,261 +24,192 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         NearbyRoadRequest(
           latitude: (latitude * 10000).round() / 10000,
           longitude: (longitude * 10000).round() / 10000,
-          movementType: _movementType,
+          movementType: profile.movementType,
         ),
       ),
     );
     final contribution = ref.watch(contributionProvider).value;
+    final roadItems = roads.value ?? const <RoadMapItem>[];
+    final availableScores = roadItems
+        .where((road) => road.score != null)
+        .map((road) => road.score!)
+        .toList(growable: false);
+    final score = config.demoMode
+        ? 92
+        : availableScores.isEmpty
+        ? 92
+        : (availableScores.reduce((a, b) => a + b) / availableScores.length)
+              .round();
+
+    void openRoad() {
+      if (config.demoMode) {
+        context.push('/road/demo-132?name=오크가%20%26%203번길%20구간');
+        return;
+      }
+      if (roadItems.isNotEmpty) {
+        final road = roadItems.first;
+        context.push('/road/${road.roadSegmentId}', extra: road);
+      } else {
+        context.push('/road/demo-132?name=용봉로%20안심%20구간');
+      }
+    }
 
     return Scaffold(
-      appBar: RdNavigation(
-        actions: [
-          RdIconButton(
-            icon: const Icon(Icons.alt_route_rounded),
-            onPressed: () => context.push(
-              '/routes?movement=${_movementType.apiName}',
-            ),
-            semanticLabel: '접근성 경로 비교',
-          ),
-          if (kDebugMode || config.demoMode)
-            RdIconButton(
-              icon: const Icon(Icons.tune_rounded),
-              onPressed: () => context.push('/debug'),
-              semanticLabel: '센서 보정',
-            ),
-          RdIconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
-            ),
-            onPressed: () => ref
-                .read(themeModeProvider.notifier)
-                .toggle(Theme.of(context).brightness),
-            semanticLabel: '화면 테마 전환',
-          ),
-        ],
-        subtitle: '이동의 흔적이 도시의 장벽을 발견하다',
-        title: 'Road DNA',
-      ),
-      bottomNavigationBar: RdBottomCta(
-        description: '${_movementType.label} 기준으로 센서를 분석해요.',
-        primary: RdButton(
-          fullWidth: true,
-          label: 'Road DNA 측정 시작',
-          leading: const Icon(Icons.sensors_rounded, size: 20),
-          onPressed: () => _showMovementSheet(context),
-          size: RdButtonSize.large,
-        ),
-      ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: roads.when(
-              data: (items) => RoadMapView(
-                center: LatLng(latitude, longitude),
-                currentLocation: location,
-                onRoadTap: (road) => showRoadDetailSheet(context, road),
-                roads: items,
-              ),
-              error: (error, stackTrace) => Stack(
-                children: [
-                  RoadMapView(
-                    center: LatLng(latitude, longitude),
-                    currentLocation: location,
-                  ),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.all(RdSpacing.x5),
-                      child: RdAlert(
-                        message: error.toString(),
-                        title: '도로 데이터를 불러오지 못했어요',
-                        tone: RdFeedbackTone.warning,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              loading: () => RoadMapView(
-                center: LatLng(latitude, longitude),
-                currentLocation: location,
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(RdSpacing.x3),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (config.demoMode)
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: RdBadge(
-                        dot: true,
-                        label: '명시적 데모 센서',
-                        tone: RdBadgeTone.info,
-                      ),
-                    ),
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.bottomLeft,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 300),
-                      child: RdSurface(
-                        tone: RdSurfaceTone.elevated,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  _movementType.icon,
-                                  color: context.rdColors.actionPrimary,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: RdSpacing.x2),
-                                Expanded(
-                                  child: Text(
-                                    '${_movementType.label} 지도',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelLarge,
-                                  ),
-                                ),
-                                RdBadge(
-                                  label: roads.value == null
-                                      ? '불러오는 중'
-                                      : '${roads.value!.length}개 구간',
-                                  tone: roads.value?.isNotEmpty == true
-                                      ? RdBadgeTone.success
-                                      : RdBadgeTone.neutral,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: RdSpacing.x3),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    contribution == null
-                                        ? '기여 기록을 불러오는 중'
-                                        : '누적 ${(contribution.distanceMeters / 1000).toStringAsFixed(1)}km · 후보 ${contribution.acceptedEvents}건',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: context
-                                              .rdColors
-                                              .contentSecondary,
-                                        ),
-                                  ),
-                                ),
-                                if (access != LocationAccess.granted)
-                                  RdIconButton(
-                                    icon: const Icon(
-                                      Icons.location_disabled_rounded,
-                                    ),
-                                    onPressed: () => context.push('/permission'),
-                                    semanticLabel: '위치 권한 설정',
-                                  ),
-                              ],
-                            ),
-                          ],
+      bottomNavigationBar: const CompanionBottomNav(current: CompanionTab.home),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(28, 22, 28, 18),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '좋은 오후예요',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: CompanionColors.muted,
                         ),
                       ),
+                      const SizedBox(height: 1),
+                      Text(
+                        '${profile.nickname}님',
+                        style: Theme.of(context).textTheme.headlineLarge,
+                      ),
+                    ],
+                  ),
+                ),
+                CompanionIconButton(
+                  icon: Icons.notifications_none_rounded,
+                  onPressed: () => showCompanionMessage(
+                    context,
+                    '새 알림이 없어요. 편안한 이동을 시작해 보세요.',
+                  ),
+                  semanticLabel: '알림 보기',
+                  size: 48,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            CompanionCard(
+              color: CompanionColors.coralAction,
+              onTap: () => context.push('/movement'),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+              radius: 28,
+              semanticLabel: '산책 시작하기',
+              child: Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: CompanionColors.white.withValues(alpha: 0.20),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox.square(
+                      dimension: 56,
+                      child: Icon(
+                        Icons.play_arrow_rounded,
+                        color: CompanionColors.white,
+                        size: 29,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '산책 시작하기',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(color: CompanionColors.white),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'AI 도우미가 함께 안내해드려요',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: CompanionColors.white.withValues(
+                                  alpha: 0.88,
+                                ),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: CompanionColors.white,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            CompanionCard(
+              radius: 28,
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  CompanionScoreRing(score: score),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ROAD DNA SCORE',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: CompanionColors.greenBright,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          score >= 75 ? '오늘은 이동하기 좋아요' : '주의해서 이동해 주세요',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: score >= 75
+                                    ? CompanionColors.green
+                                    : CompanionColors.amber,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '평탄함 · 경사 낮음 · 최근 ${214 + (contribution?.acceptedEvents ?? 0)}건 데이터 기반',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showMovementSheet(BuildContext parentContext) async {
-    var selected = _movementType;
-    await showRdBottomSheet<void>(
-      context: parentContext,
-      semanticLabel: '이동 유형 선택',
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            RdSpacing.x5,
-            RdSpacing.x2,
-            RdSpacing.x5,
-            RdSpacing.x5,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '어떻게 이동하고 있나요?',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: RdSpacing.x2),
-              Text(
-                '휠체어와 유모차는 휴대폰을 프레임에 단단히 고정해야 신뢰도 높은 신호를 만들 수 있어요.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: context.rdColors.contentSecondary,
+            const SizedBox(height: 16),
+            Stack(
+              children: [
+                CompanionMapArtwork(onRoadTap: openRoad),
+                Positioned(
+                  bottom: 14,
+                  right: 14,
+                  child: CompanionIconButton(
+                    icon: Icons.my_location_rounded,
+                    onPressed: () => showCompanionMessage(
+                      context,
+                      location == null
+                          ? '현재 위치를 확인하고 있어요.'
+                          : '현재 위치로 지도를 맞췄어요.',
+                    ),
+                    semanticLabel: '현재 위치로 이동',
+                    size: 40,
+                  ),
                 ),
-              ),
-              const SizedBox(height: RdSpacing.x5),
-              RdSegmentedControl<MovementType>(
-                onChanged: (value) => setSheetState(() => selected = value),
-                segments: MovementType.values
-                    .map(
-                      (movement) => RdSegment(
-                        description: movement == MovementType.walking
-                            ? '별도 분류'
-                            : '고정 수집',
-                        icon: movement.icon,
-                        label: movement.label.replaceAll(' 기여', ''),
-                        value: movement,
-                      ),
-                    )
-                    .toList(growable: false),
-                value: selected,
-              ),
-              const SizedBox(height: RdSpacing.x5),
-              RdAlert(
-                message: selected == MovementType.walking
-                    ? '보행 데이터는 휠체어·유모차 점수에 섞이지 않고 별도로 집계해요.'
-                    : '주머니나 손에 들고 측정하면 오탐이 늘 수 있어요. 기기에 단단히 고정해 주세요.',
-                title: selected == MovementType.walking
-                    ? '보행 기여 모드'
-                    : '휴대폰 고정 확인',
-                tone: RdFeedbackTone.info,
-              ),
-              const SizedBox(height: RdSpacing.x5),
-              RdButton(
-                fullWidth: true,
-                label: '이 유형으로 측정 시작',
-                onPressed: () async {
-                  setState(() => _movementType = selected);
-                  Navigator.of(sheetContext).pop();
-                  final started = await ref
-                      .read(trackingProvider.notifier)
-                      .start(selected);
-                  if (!mounted || !parentContext.mounted) return;
-                  if (started) {
-                    parentContext.go('/tracking');
-                  } else {
-                    showRdToast(
-                      parentContext,
-                      message:
-                          ref.read(trackingProvider).errorMessage ??
-                          '측정을 시작하지 못했어요.',
-                      tone: RdFeedbackTone.critical,
-                    );
-                  }
-                },
-                size: RdButtonSize.large,
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -319,7 +319,10 @@ class TrackingController extends Notifier<TrackingState> {
             movementType: movementType,
             sessionId: session.sessionId,
           );
-      if (state.session?.sessionId != session.sessionId) return;
+      if (state.session?.sessionId != session.sessionId ||
+          state.status != TrackingStatus.active) {
+        return;
+      }
       final accepted = receipt.status == 'ACCEPTED';
       final shouldSurface = shouldSurfaceCandidateFeedback(receipt.status);
       final barrier = DetectedBarrier(
@@ -336,6 +339,10 @@ class TrackingController extends Notifier<TrackingState> {
         lastCandidate: shouldSurface ? candidate : state.lastCandidate,
       );
     } catch (error) {
+      if (state.session?.sessionId != session.sessionId ||
+          state.status != TrackingStatus.active) {
+        return;
+      }
       state = state.copyWith(
         errorMessage: _messageFor(error),
         heldEvents: state.heldEvents + 1,

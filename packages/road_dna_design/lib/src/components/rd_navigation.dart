@@ -26,14 +26,11 @@ class RdNavigation extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final colors = context.rdColors;
     return Material(
-      color: colors.surface,
+      color: colors.canvas,
       child: SafeArea(
         bottom: false,
         child: Container(
           constraints: BoxConstraints(minHeight: preferredSize.height),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: colors.border)),
-          ),
           padding: const EdgeInsets.symmetric(horizontal: RdSpacing.x3),
           child: Row(
             children: [

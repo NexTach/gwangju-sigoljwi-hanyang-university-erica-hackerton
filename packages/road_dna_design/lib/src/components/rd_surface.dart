@@ -30,9 +30,9 @@ class RdSurface extends StatelessWidget {
         boxShadow: tone == RdSurfaceTone.elevated
             ? const [
                 BoxShadow(
-                  blurRadius: 12,
-                  color: Color(0x0F101318),
-                  offset: Offset(0, 4),
+                  blurRadius: 24,
+                  color: Color(0x142E2A26),
+                  offset: Offset(0, 8),
                 ),
               ]
             : null,

@@ -1,6 +1,6 @@
 # Road DNA — 프로젝트 계획서
 
-**Document Version:** v1.1 (재정리본)
+**Document Version:** v1.2 (Companion 프로토타입 범위 반영)
 **Project Type:** 해커톤 MVP / 접근성 데이터 플랫폼
 **Platform:** Flutter Mobile App + Backend API + Admin Web Dashboard
 
@@ -163,6 +163,24 @@ Wheelchair Sensor Mode / Stroller Sensor Mode / Contributor Mode
 - 도시 접근성 Digital Twin
 
 **P0만 완성돼도 발표 시연은 가능하다.**
+
+### 해커톤 데모의 사용자 노출 범위
+
+구현 화면과 사용자 기능의 기준은 `claude-design/Road DNA mobile application/Road DNA - Companion.dc.html`이다. 기술 문서에 더 넓은 발전 방향이 있더라도 이번 데모에서는 아래 프로토타입 흐름만 사용자에게 노출한다.
+
+- 모바일: 스플래시 → 권한 동의 → 닉네임 → 홈 → 이동 유형 선택 → 경로 비교 → 산책 중 → 산책 리포트
+- 탐색: 주변 정보, 프로필, 센서 분석 상세, 도로 상세
+- 웹: 접근성 핵심 지표, 도로 상태 지도, 개선 우선순위 표
+- 프로토타입에 보이는 제어: 이동 유형 선택, 안전 경로 출발, 일시정지/계속하기, 종료, 공유/저장, 주변 필터, 하단 탐색, 설정 목록, 로그아웃, 도로 회피 안내
+
+다음 항목은 내부 개발 도구 또는 후속 범위이며 데모 사용자 화면에 노출하지 않는다.
+
+- 회원가입·로그인과 계정 관리
+- 센서 보정, 디버그 패널, 디자인 시스템 카탈로그
+- 프로토타입에 없는 관리자 필터·수동 새로고침·추가 드릴다운
+- 사진 신고, 장애물 종류 확정, 커뮤니티·알림 센터 등 신규 기능
+
+재현 가능한 센서, 익명 UUID, 로컬 저장, API 연동은 위 화면을 작동시키기 위한 내부 구현으로 사용할 수 있다.
 
 ---
 

@@ -38,12 +38,12 @@ import {
 type Movement = "WHEELCHAIR" | "STROLLER" | "WALKING";
 
 const palette = [
-  ["Route Cobalt", "#3563E9"],
-  ["Trace Cyan", "#19B8B2"],
-  ["Barrier Coral", "#F04452"],
-  ["Survey Amber", "#F59F00"],
-  ["City Ink", "#191F28"],
-  ["Map Snow", "#F7F8FA"],
+  ["Companion Coral", "#FF5A36"],
+  ["Accessible Green", "#4F9A72"],
+  ["Caution Amber", "#F5A623"],
+  ["Barrier Red", "#E14F3D"],
+  ["City Ink", "#2E2A26"],
+  ["Warm Cream", "#FBF6F0"],
 ] as const;
 
 export function Catalog() {
@@ -72,22 +72,22 @@ export function Catalog() {
             {dark ? "Light" : "Dark"}
           </Button>
         }
-        subtitle="v1.0 · Web component catalog"
+        subtitle="v2.0 · Companion component catalog"
         title="Road DNA Design"
       />
 
       <main>
         <section className="catalog-hero">
           <div>
-            <span className="catalog-kicker">CITY ACCESSIBILITY INTERFACE</span>
+            <span className="catalog-kicker">YOUR AI MOBILITY COMPANION</span>
             <h1>
-              움직임을
+              더 편안한 길을
               <br />
-              도시의 언어로.
+              함께 찾아요.
             </h1>
             <p>
-              명료한 행동과 신뢰 가능한 상태 표현을 바탕으로, 이동 중 방해를
-              최소화하는 Road DNA의 제품 언어입니다.
+              따뜻한 표면과 선명한 한 가지 행동, 이동 방식별 안전 상태로 구성한
+              Road DNA Companion의 제품 언어입니다.
             </p>
           </div>
           <Surface className="catalog-hero__signal" padding="large">
@@ -129,7 +129,7 @@ export function Catalog() {
           </div>
           <div className="catalog-type">
             <Surface>
-              <span className="catalog-label">DISPLAY · SUIT</span>
+              <span className="catalog-label">DISPLAY · PRETENDARD</span>
               <div className="catalog-display">Score 87</div>
             </Surface>
             <Surface>

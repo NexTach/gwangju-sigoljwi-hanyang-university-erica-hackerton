@@ -50,7 +50,7 @@ class RdButton extends StatelessWidget {
         ? Colors.transparent
         : colors.surfaceSubtle;
     final disabledForeground = colors.contentTertiary;
-    final radius = size == RdButtonSize.large ? RdRadius.lg : RdRadius.md;
+    final radius = size == RdButtonSize.large ? RdRadius.pill : RdRadius.md;
 
     final button = Semantics(
       button: true,
@@ -66,6 +66,9 @@ class RdButton extends StatelessWidget {
             disabledBackgroundColor: disabledBackground,
             disabledForegroundColor: disabledForeground,
             foregroundColor: foreground,
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
             padding: EdgeInsets.symmetric(
               horizontal: size == RdButtonSize.large
                   ? RdSpacing.x6
@@ -73,6 +76,9 @@ class RdButton extends StatelessWidget {
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radius),
+              side: tone == RdButtonTone.secondary
+                  ? BorderSide(color: colors.border)
+                  : BorderSide.none,
             ),
             textStyle: Theme.of(context).textTheme.labelLarge,
           ),

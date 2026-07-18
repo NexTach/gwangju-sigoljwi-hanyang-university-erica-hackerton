@@ -18,10 +18,7 @@ class RdBottomCta extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.rdColors;
     return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border(top: BorderSide(color: colors.border)),
-      ),
+      decoration: BoxDecoration(color: colors.canvas),
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(

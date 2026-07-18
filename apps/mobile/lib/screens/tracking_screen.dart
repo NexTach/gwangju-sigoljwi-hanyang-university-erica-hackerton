@@ -1,51 +1,61 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:road_dna_design/road_dna_design.dart';
 
-import '../core/models.dart';
-import '../state/providers.dart';
 import '../state/tracking_controller.dart';
-import '../ui/road_map_view.dart';
+import '../ui/companion_map.dart';
+import '../ui/companion_theme.dart';
+import '../ui/companion_widgets.dart';
+import '../ui/demo_profile_state.dart';
 
-class TrackingScreen extends ConsumerWidget {
+class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrackingScreen> createState() => _TrackingScreenState();
+}
+
+class _TrackingScreenState extends ConsumerState<TrackingScreen> {
+  bool _assistantPaused = false;
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _stop() async {
+    await ref.read(trackingProvider.notifier).stop();
+    if (!mounted) return;
+    context.go('/report');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tracking = ref.watch(trackingProvider);
-    final config = ref.watch(appConfigProvider);
-    final location = tracking.latestLocation;
-    final latitude = location?.latitude ?? 35.15995;
-    final longitude = location?.longitude ?? 126.85315;
-    final movement = tracking.movementType;
-    final List<RoadMapItem> roads = movement == null
-        ? const []
-        : ref
-                  .watch(
-                    nearbyRoadsProvider(
-                      NearbyRoadRequest(
-                        latitude: (latitude * 10000).round() / 10000,
-                        longitude: (longitude * 10000).round() / 10000,
-                        movementType: movement,
-                      ),
-                    ),
-                  )
-                  .value ??
-              const [];
+    final profile = ref.watch(demoProfileProvider);
 
     ref.listen<int>(
       trackingProvider.select((state) => state.feedbackSequence),
       (previous, next) {
         if (next <= (previous ?? 0)) return;
         final candidate = ref.read(trackingProvider).lastCandidate;
-        showRdToast(
+        showCompanionMessage(
           context,
-          message: candidate?.isPossibleDrop == true
+          candidate?.isPossibleDrop == true
               ? '큰 단발 충격을 휴대폰 낙하 가능성으로 보류했어요'
               : '이동 충격 패턴을 감지했어요',
-          tone: RdFeedbackTone.warning,
         );
       },
     );
@@ -53,224 +63,405 @@ class TrackingScreen extends ConsumerWidget {
     if (tracking.status == TrackingStatus.idle ||
         tracking.status == TrackingStatus.failure) {
       return Scaffold(
-        appBar: RdNavigation(
-          onBack: () => context.go('/home'),
-          title: '측정 준비',
-        ),
-        body: RdEmptyState(
-          action: RdButton(
-            label: '홈으로 돌아가기',
-            onPressed: () => context.go('/home'),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CompanionScreenHeader(
+                  onBack: () => context.go('/home'),
+                  title: '측정 준비',
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.sensors_off_rounded,
+                  color: CompanionColors.muted,
+                  size: 52,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '측정을 시작할 수 없어요',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  tracking.errorMessage ?? '활성 측정 세션이 없어요.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: CompanionColors.muted,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const Spacer(),
+                CompanionPrimaryButton(
+                  label: '홈으로 돌아가기',
+                  onPressed: () => context.go('/home'),
+                ),
+              ],
+            ),
           ),
-          description: tracking.errorMessage ?? '활성 측정 세션이 없어요.',
-          icon: Icons.sensors_off_rounded,
-          title: '측정을 시작할 수 없어요',
         ),
       );
     }
 
-    final recentImpact =
-        tracking.lastCandidate != null &&
-        DateTime.now().toUtc().difference(tracking.lastCandidate!.detectedAt) <
-            const Duration(seconds: 3);
-    final ribbonState = recentImpact
-        ? RdRoadScanState.impact
-        : tracking.status == TrackingStatus.active
-        ? RdRoadScanState.active
-        : RdRoadScanState.idle;
+    final elapsed = tracking.session == null
+        ? Duration.zero
+        : DateTime.now().toUtc().difference(tracking.session!.startedAt);
+    final minutes = elapsed.inMinutes;
+    final seconds = elapsed.inSeconds.remainder(60);
+    final displayDistance = tracking.distanceMeters > 0
+        ? tracking.distanceMeters
+        : elapsed.inSeconds * 1.55;
+    final latest = tracking.latestLocation;
+    final score = tracking.acceptedEvents == 0 ? 96 : 88;
 
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: RdNavigation(
-          actions: [
-            if (config.demoMode)
-              const Padding(
-                padding: EdgeInsets.only(right: RdSpacing.x2),
-                child: RdBadge(
-                  dot: true,
-                  label: '데모 센서',
-                  tone: RdBadgeTone.info,
-                ),
-              ),
-          ],
-          subtitle: movement?.label,
-          title: '도로 분석 중',
-        ),
-        bottomNavigationBar: _TrackingBottomPanel(
-          state: tracking,
-          onStop: () => _stop(context, ref),
-        ),
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: RoadMapView(
-                barriers: tracking.barriers,
-                center: LatLng(latitude, longitude),
-                currentLocation: location,
-                roads: roads,
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(RdSpacing.x3),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    RdRoadScanRibbon(state: ribbonState),
-                    const SizedBox(height: RdSpacing.x2),
-                    if (tracking.errorMessage != null)
-                      RdAlert(
-                        message: tracking.errorMessage!,
-                        title: '측정 상태를 확인해 주세요',
-                        tone: RdFeedbackTone.warning,
-                      ),
-                    const Spacer(),
-                    Align(
-                      alignment: Alignment.bottomRight,
-                      child: RdSurface(
-                        tone: RdSurfaceTone.elevated,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.gps_fixed_rounded,
-                              color: location != null && location.accuracy <= 25
-                                  ? context.rdColors.statusSuccess
-                                  : context.rdColors.statusWarning,
-                              size: 18,
+        body: SafeArea(
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final mapHeight = (constraints.maxHeight * 0.45).clamp(
+                300.0,
+                380.0,
+              );
+              return Column(
+                children: [
+                  SizedBox(
+                    height: mapHeight,
+                    child: Stack(
+                      children: [
+                        const Positioned.fill(
+                          child: CompanionMapArtwork(
+                            height: double.infinity,
+                            style: CompanionMapStyle.tracking,
+                          ),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 16,
+                          child: Row(
+                            children: [
+                              CompanionIconButton(
+                                backgroundColor: CompanionColors.white,
+                                icon: Icons.menu_rounded,
+                                onPressed: () => showCompanionMessage(
+                                  context,
+                                  '측정을 종료하면 홈 메뉴를 이용할 수 있어요.',
+                                ),
+                                semanticLabel: '측정 메뉴',
+                                size: 40,
+                              ),
+                              const Spacer(),
+                              CompanionTag(
+                                backgroundColor: CompanionColors.ink,
+                                foregroundColor: CompanionColors.white,
+                                label:
+                                    '${(displayDistance / 1000).toStringAsFixed(1)}km · $minutes분',
+                                icon: Icons.route_rounded,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          left: 20,
+                          top: 68,
+                          child: Row(
+                            children: [
+                              const DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: CompanionColors.greenBright,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: SizedBox.square(dimension: 8),
+                              ),
+                              const SizedBox(width: 7),
+                              Text(
+                                _assistantPaused ? '안내 일시정지' : '함께 걷는 중',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: CompanionColors.ink,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 20,
+                          child: Transform.translate(
+                            offset: const Offset(0, 22),
+                            child: CompanionIconButton(
+                              icon: Icons.my_location_rounded,
+                              onPressed: () => showCompanionMessage(
+                                context,
+                                latest == null
+                                    ? 'GPS 신호를 확인하고 있어요.'
+                                    : '현재 위치를 중심으로 표시했어요.',
+                              ),
+                              semanticLabel: '현재 위치',
+                              size: 48,
                             ),
-                            const SizedBox(width: RdSpacing.x2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                        color: CompanionColors.cream,
+                      ),
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Center(
+                              child: Container(
+                                height: 4,
+                                width: 36,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(2),
+                                  color: CompanionColors.creamLine,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
                             Text(
-                              location == null
-                                  ? 'GPS 확인 중'
-                                  : 'GPS ±${location.accuracy.toStringAsFixed(0)}m',
-                              style: Theme.of(context).textTheme.bodySmall,
+                              '${profile.nickname}님, 함께 걷고 있어요',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 12),
+                            CompanionCard(
+                              color: CompanionColors.creamMuted,
+                              onTap: () => context.push('/sensor'),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              radius: 999,
+                              semanticLabel: '센서 분석 상세 보기',
+                              child: Row(
+                                children: [
+                                  CompanionScoreRing(score: score, size: 28),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      '이 구간 점수 $score · ${score >= 90 ? '매우 안전해요' : '주의가 필요해요'}',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelMedium,
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: CompanionColors.muted,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                _TrackingMetric(
+                                  icon: Icons.location_on_outlined,
+                                  label:
+                                      '${(displayDistance / 1000).toStringAsFixed(1)}km',
+                                ),
+                                const _MetricDivider(),
+                                _TrackingMetric(
+                                  icon: Icons.schedule_rounded,
+                                  label:
+                                      '$minutes:${seconds.toString().padLeft(2, '0')}',
+                                ),
+                                const _MetricDivider(),
+                                _TrackingMetric(
+                                  icon:
+                                      tracking.movementType?.icon ??
+                                      Icons.accessible_forward_rounded,
+                                  label:
+                                      '${tracking.movementType?.label ?? profile.movementType.label} 모드',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 15),
+                            const Divider(
+                              color: CompanionColors.creamMuted,
+                              height: 1,
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Text(
+                                  '산책 도우미',
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                                const Spacer(),
+                                TextButton.icon(
+                                  icon: Icon(
+                                    _assistantPaused
+                                        ? Icons.play_arrow_rounded
+                                        : Icons.pause_rounded,
+                                    size: 17,
+                                  ),
+                                  label: Text(
+                                    _assistantPaused ? '계속하기' : '일시정지',
+                                  ),
+                                  onPressed: () {
+                                    setState(
+                                      () =>
+                                          _assistantPaused = !_assistantPaused,
+                                    );
+                                    showCompanionMessage(
+                                      context,
+                                      _assistantPaused
+                                          ? '산책 안내를 일시정지했어요. 도로 분석은 계속돼요.'
+                                          : '산책 안내를 다시 시작했어요.',
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: CompanionColors.ink,
+                                    textStyle: Theme.of(
+                                      context,
+                                    ).textTheme.labelMedium,
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(
+                                    Icons.stop_circle_outlined,
+                                    size: 17,
+                                  ),
+                                  label: const Text('종료'),
+                                  onPressed:
+                                      tracking.status == TrackingStatus.active
+                                      ? _stop
+                                      : null,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor:
+                                        CompanionColors.coralAction,
+                                    textStyle: Theme.of(
+                                      context,
+                                    ).textTheme.labelMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            CompanionCard(
+                              color: CompanionColors.amberSoft,
+                              onTap: () => context.push(
+                                '/road/demo-132?name=오크가%20%26%203번길%20구간',
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                                vertical: 14,
+                              ),
+                              radius: 20,
+                              semanticLabel: '앞쪽 단차 상세 보기',
+                              child: Row(
+                                children: [
+                                  const DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: CompanionColors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: SizedBox.square(
+                                      dimension: 38,
+                                      child: Icon(
+                                        Icons.error_outline_rounded,
+                                        color: CompanionColors.amber,
+                                        size: 19,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 13),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tracking.acceptedEvents > 0
+                                              ? '새로운 이동 충격을 감지했어요'
+                                              : '40m 앞에 단차가 있어요',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.labelMedium,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '더 편한 길로 안내해드릴까요?',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: CompanionColors.amber,
+                                    size: 18,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _stop(BuildContext context, WidgetRef ref) async {
-    await ref.read(trackingProvider.notifier).stop();
-    if (!context.mounted) return;
-    final result = ref.read(trackingProvider);
-    await showRdBottomSheet<void>(
-      context: context,
-      semanticLabel: '측정 완료',
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          RdSpacing.x5,
-          RdSpacing.x2,
-          RdSpacing.x5,
-          RdSpacing.x5,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Icon(
-              Icons.check_circle_rounded,
-              color: sheetContext.rdColors.statusSuccess,
-              size: 48,
-            ),
-            const SizedBox(height: RdSpacing.x4),
-            Text(
-              '이동이 도시 데이터가 됐어요',
-              style: Theme.of(sheetContext).textTheme.headlineMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: RdSpacing.x2),
-            Text(
-              '원본 센서 신호는 전송하지 않았고, 수용된 충격 후보와 도로 구간만 집계했어요.',
-              style: Theme.of(sheetContext).textTheme.bodyLarge?.copyWith(
-                color: sheetContext.rdColors.contentSecondary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: RdSpacing.x6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                RdMetric(
-                  label: '이동 거리',
-                  value: '${result.distanceMeters.toStringAsFixed(0)}m',
-                ),
-                RdMetric(
-                  label: '수용 후보',
-                  value: '${result.acceptedEvents}건',
-                ),
-                RdMetric(label: '보류', value: '${result.heldEvents}건'),
-              ],
-            ),
-            if (result.errorMessage != null) ...[
-              const SizedBox(height: RdSpacing.x4),
-              RdAlert(
-                message: result.errorMessage!,
-                title: '동기화 안내',
-                tone: RdFeedbackTone.warning,
-              ),
-            ],
-            const SizedBox(height: RdSpacing.x6),
-            RdButton(
-              fullWidth: true,
-              label: '지도로 돌아가기',
-              onPressed: () {
-                Navigator.of(sheetContext).pop();
-                ref.read(trackingProvider.notifier).reset();
-                context.go('/home');
-              },
-              size: RdButtonSize.large,
-            ),
-          ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
 }
 
-class _TrackingBottomPanel extends StatelessWidget {
-  const _TrackingBottomPanel({
-    required this.onStop,
-    required this.state,
-  });
+class _TrackingMetric extends StatelessWidget {
+  const _TrackingMetric({required this.icon, required this.label});
 
-  final VoidCallback onStop;
-  final TrackingState state;
+  final IconData icon;
+  final String label;
 
   @override
-  Widget build(BuildContext context) => RdBottomCta(
-    description:
-        '센서 ${state.lastSensorMagnitude.toStringAsFixed(1)} m/s² · 보류 ${state.heldEvents}건',
-    primary: RdButton(
-      fullWidth: true,
-      label: '측정 종료',
-      loading: state.status == TrackingStatus.stopping,
-      onPressed: state.status == TrackingStatus.active ? onStop : null,
-      size: RdButtonSize.large,
-      tone: RdButtonTone.danger,
-    ),
-    secondary: Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          RdMetric(
-            label: '이동',
-            value: '${state.distanceMeters.toStringAsFixed(0)}m',
+  Widget build(BuildContext context) => Expanded(
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: CompanionColors.muted, size: 15),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: CompanionColors.ink),
           ),
-          RdMetric(label: '후보', value: '${state.acceptedEvents}'),
-        ],
-      ),
+        ),
+      ],
     ),
   );
+}
+
+class _MetricDivider extends StatelessWidget {
+  const _MetricDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(color: CompanionColors.creamLine, height: 14, width: 1);
 }

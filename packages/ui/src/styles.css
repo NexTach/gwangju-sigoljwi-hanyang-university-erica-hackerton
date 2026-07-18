@@ -65,7 +65,7 @@
 }
 
 .rd-button--large {
-  border-radius: var(--rd-radius-lg);
+  border-radius: var(--rd-radius-pill);
   height: var(--rd-size-button-large);
   padding-inline: var(--rd-spacing-6);
 }
@@ -217,8 +217,7 @@
 
 .rd-navigation {
   align-items: center;
-  background: color-mix(in srgb, var(--rd-color-surface) 92%, transparent);
-  border-bottom: 1px solid var(--rd-color-border);
+  background: color-mix(in srgb, var(--rd-color-canvas) 94%, transparent);
   display: flex;
   height: var(--rd-size-navigation);
   justify-content: space-between;
@@ -253,8 +252,7 @@
 }
 
 .rd-bottom-cta {
-  background: color-mix(in srgb, var(--rd-color-surface) 94%, transparent);
-  border-top: 1px solid var(--rd-color-border);
+  background: color-mix(in srgb, var(--rd-color-canvas) 96%, transparent);
   bottom: 0;
   left: 0;
   padding: var(--rd-spacing-3) var(--rd-layout-mobile-gutter)

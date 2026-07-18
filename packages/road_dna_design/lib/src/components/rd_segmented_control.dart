@@ -57,6 +57,8 @@ class RdSegmentedControl<T> extends StatelessWidget {
                         color: segment.value == value
                             ? colors.surface
                             : Colors.transparent,
+                        elevation: segment.value == value ? 1 : 0,
+                        shadowColor: const Color(0x142E2A26),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(RdRadius.md),
                           onTap: () => onChanged(segment.value),
