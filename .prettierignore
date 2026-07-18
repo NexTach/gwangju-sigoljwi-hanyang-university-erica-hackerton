@@ -5,5 +5,6 @@ apps/mobile/.dart_tool/
 apps/mobile/android/
 apps/mobile/build/
 apps/mobile/ios/
+claude-design/
 docs/PLAN_*.md
 **/*.tsbuildinfo
