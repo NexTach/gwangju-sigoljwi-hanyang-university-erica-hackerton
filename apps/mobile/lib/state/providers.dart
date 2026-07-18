@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/app_config.dart';
@@ -159,23 +159,5 @@ final nearbyRoadsProvider =
     );
 
 final roadDetailProvider = FutureProvider.family<RoadDetail, String>(
-  (ref, roadSegmentId) =>
-      ref.watch(apiProvider).roadDetail(roadSegmentId),
+  (ref, roadSegmentId) => ref.watch(apiProvider).roadDetail(roadSegmentId),
 );
-
-class ThemeModeController extends Notifier<ThemeMode> {
-  @override
-  ThemeMode build() => ThemeMode.system;
-
-  void toggle(Brightness brightness) {
-    final isDark =
-        state == ThemeMode.dark ||
-        (state == ThemeMode.system && brightness == Brightness.dark);
-    state = isDark ? ThemeMode.light : ThemeMode.dark;
-  }
-}
-
-final themeModeProvider =
-    NotifierProvider<ThemeModeController, ThemeMode>(
-      ThemeModeController.new,
-    );

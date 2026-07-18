@@ -46,8 +46,6 @@ enum RoadGrade {
   };
 }
 
-enum ConfidenceLevel { low, medium, high }
-
 enum ImpactLevel {
   low('LOW_IMPACT', '낮은 충격'),
   medium('MEDIUM_IMPACT', '중간 충격'),

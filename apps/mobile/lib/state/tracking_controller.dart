@@ -469,30 +469,6 @@ class TrackingController extends Notifier<TrackingState> {
     state = const TrackingState.idle();
   }
 
-  Future<void> injectDebugImpact() async {
-    if (state.status != TrackingStatus.active) return;
-    final detectedAt =
-        state.latestLocation?.recordedAt ?? DateTime.now().toUtc();
-    await _handleCandidate(
-      ImpactCandidate(
-        anomalyScore: 0.86,
-        detectedAt: detectedAt,
-        features: const SensorWindowFeatures(
-          duration: Duration(seconds: 2),
-          gyroRms: 1.8,
-          maxPeak: 6.4,
-          mean: 1.4,
-          peakCount: 3,
-          rms: 2.2,
-          standardDeviation: 1.1,
-        ),
-        impactLevel: ImpactLevel.high,
-        isPossibleDrop: false,
-        severity: 0.86,
-      ),
-    );
-  }
-
   void _onLocation(LocationReading location) {
     if (state.status != TrackingStatus.active) return;
     if (!(_locationQualityFilter?.accept(location) ?? false)) return;

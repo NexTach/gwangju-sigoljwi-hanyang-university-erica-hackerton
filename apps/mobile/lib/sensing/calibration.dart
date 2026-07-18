@@ -30,20 +30,6 @@ class CalibrationSettings {
       highImpactPeak > mediumImpactPeak &&
       dropPeak > highImpactPeak &&
       vibrationRms > 0;
-
-  CalibrationSettings copyWith({
-    double? dropPeak,
-    double? highImpactPeak,
-    double? lowImpactPeak,
-    double? mediumImpactPeak,
-    double? vibrationRms,
-  }) => CalibrationSettings(
-    dropPeak: dropPeak ?? this.dropPeak,
-    highImpactPeak: highImpactPeak ?? this.highImpactPeak,
-    lowImpactPeak: lowImpactPeak ?? this.lowImpactPeak,
-    mediumImpactPeak: mediumImpactPeak ?? this.mediumImpactPeak,
-    vibrationRms: vibrationRms ?? this.vibrationRms,
-  );
 }
 
 class CalibrationStore {
@@ -67,30 +53,10 @@ class CalibrationStore {
       lowImpactPeak:
           await _preferences.getDouble(_lowKey) ?? defaults.lowImpactPeak,
       mediumImpactPeak:
-          await _preferences.getDouble(_mediumKey) ??
-          defaults.mediumImpactPeak,
+          await _preferences.getDouble(_mediumKey) ?? defaults.mediumImpactPeak,
       vibrationRms:
           await _preferences.getDouble(_rmsKey) ?? defaults.vibrationRms,
     );
     return settings.isValid ? settings : defaults;
-  }
-
-  Future<void> write(CalibrationSettings settings) async {
-    if (!settings.isValid) {
-      throw ArgumentError('Calibration thresholds must increase in order.');
-    }
-    await Future.wait([
-      _preferences.setDouble(_dropKey, settings.dropPeak),
-      _preferences.setDouble(_highKey, settings.highImpactPeak),
-      _preferences.setDouble(_lowKey, settings.lowImpactPeak),
-      _preferences.setDouble(_mediumKey, settings.mediumImpactPeak),
-      _preferences.setDouble(_rmsKey, settings.vibrationRms),
-    ]);
-  }
-
-  Future<void> reset() async {
-    for (final key in [_dropKey, _highKey, _lowKey, _mediumKey, _rmsKey]) {
-      await _preferences.remove(key);
-    }
   }
 }
