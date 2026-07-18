@@ -3,7 +3,7 @@ name: Deploy on-premise
 on:
   push:
     branches:
-      - docs/road_dna-plan
+      - main
   workflow_dispatch:
 
 permissions:
@@ -50,7 +50,7 @@ jobs:
           push: true
           tags: |
             ${{ env.API_IMAGE }}:${{ github.sha }}
-            ${{ env.API_IMAGE }}:road-dna-plan
+            ${{ env.API_IMAGE }}:main
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -63,7 +63,7 @@ jobs:
           push: true
           tags: |
             ${{ env.DASHBOARD_IMAGE }}:${{ github.sha }}
-            ${{ env.DASHBOARD_IMAGE }}:road-dna-plan
+            ${{ env.DASHBOARD_IMAGE }}:main
           cache-from: type=gha,scope=dashboard
           cache-to: type=gha,mode=max,scope=dashboard
 
