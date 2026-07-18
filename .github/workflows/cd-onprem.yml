@@ -108,7 +108,7 @@ jobs:
           SSH="ssh -i $HOME/.ssh/road_dna_deploy -o BatchMode=yes"
           printf '%s' "$GHCR_TOKEN" \
             | $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
-              "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+              "env PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
           $SSH "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           cd "$HOME/Downloads/road-dna/deploy"
