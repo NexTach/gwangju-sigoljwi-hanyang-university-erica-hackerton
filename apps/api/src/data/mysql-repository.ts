@@ -421,7 +421,7 @@ export class MysqlRoadRepository implements RoadRepository {
     limit: number,
     movementType?: MovementType,
   ): Promise<PriorityRoad[]> {
-    const [rows] = await this.pool.execute<RoadScoreRow[]>(
+    const [rows] = await this.pool.query<RoadScoreRow[]>(
       `SELECT
          roads.road_segment_id,
          roads.road_name,
