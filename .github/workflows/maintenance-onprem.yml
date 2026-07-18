@@ -1,0 +1,48 @@
+name: On-premise retention maintenance
+
+on:
+  schedule:
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: road-dna-production
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Remove expired detailed records
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure deployment SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.ONPREM_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.ONPREM_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/road_dna_deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/road_dna_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Run retention cleanup
+        env:
+          DEPLOY_HOST: ${{ secrets.ONPREM_HOST }}
+          DEPLOY_USER: ${{ secrets.ONPREM_USER }}
+        run: |
+          ssh -i "$HOME/.ssh/road_dna_deploy" -o BatchMode=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:${PATH:-}"
+          export PATH
+          cd "$HOME/Downloads/road-dna/deploy"
+          docker compose \
+            --env-file .env \
+            --env-file release.env \
+            -f docker-compose.prod.yml \
+            run --rm --no-deps api node dist/scripts/cleanup.js
+          REMOTE

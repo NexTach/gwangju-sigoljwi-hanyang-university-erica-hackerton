@@ -1,0 +1,35 @@
+{
+  "name": "Road DNA",
+  "short_name": "Road DNA",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#F7F8FA",
+  "theme_color": "#3563E9",
+  "description": "이동 센서 신호로 도로 접근성 데이터를 만드는 Road DNA",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

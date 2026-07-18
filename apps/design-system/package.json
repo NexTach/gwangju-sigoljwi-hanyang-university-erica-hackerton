@@ -1,0 +1,29 @@
+{
+  "name": "@road-dna/design-system-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite",
+    "lint": "tsc -b --pretty false",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@road-dna/design-tokens": "workspace:*",
+    "@road-dna/ui": "workspace:*",
+    "lucide-react": "^1.25.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  }
+}

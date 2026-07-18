@@ -1,0 +1,36 @@
+{
+  "name": "@road-dna/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite",
+    "lint": "tsc -b --pretty false",
+    "test": "vitest run",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@road-dna/contracts": "workspace:*",
+    "@road-dna/design-tokens": "workspace:*",
+    "@road-dna/ui": "workspace:*",
+    "@tanstack/react-query": "^5.90.3",
+    "lucide-react": "^1.25.0",
+    "maplibre-gl": "^5.19.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/geojson": "^7946.0.16",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
+  }
+}

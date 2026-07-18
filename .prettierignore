@@ -1,0 +1,9 @@
+.agents/
+.claude/
+.harness/
+apps/mobile/.dart_tool/
+apps/mobile/android/
+apps/mobile/build/
+apps/mobile/ios/
+docs/PLAN_*.md
+**/*.tsbuildinfo

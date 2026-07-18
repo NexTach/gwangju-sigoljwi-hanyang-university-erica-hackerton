@@ -1,0 +1,22 @@
+{
+  "name": "@road-dna/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/tokens.d.ts",
+      "import": "./dist/tokens.js"
+    },
+    "./tokens.css": "./dist/tokens.css"
+  },
+  "files": [
+    "dist",
+    "tokens.json"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "typecheck": "pnpm build && tsc --noEmit --allowJs false --module NodeNext --moduleResolution NodeNext --target ES2022 dist/tokens.d.ts"
+  }
+}

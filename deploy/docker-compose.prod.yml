@@ -1,0 +1,81 @@
+name: road-dna
+
+services:
+  api:
+    image: ${ROAD_DNA_API_IMAGE:-road-dna-api:local}
+    env_file:
+      - ${ROAD_DNA_ENV_FILE:-.env}
+    environment:
+      HOST: 0.0.0.0
+      MYSQL_DATABASE: road_dna
+      NODE_ENV: production
+      PORT: 3000
+      PUBLIC_PATH_PREFIX: /road-dna
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    init: true
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - app
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/health').then(async r =>
+          process.exit(r.ok && (await r.json()).status === 'ok' ? 0 : 1)
+          ).catch(() => process.exit(1))
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  dashboard:
+    image: ${ROAD_DNA_DASHBOARD_IMAGE:-road-dna-dashboard:local}
+    depends_on:
+      api:
+        condition: service_healthy
+    init: true
+    read_only: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    ports:
+      - 127.0.0.1:${ROAD_DNA_PORT:-18080}:8080
+    networks:
+      - app
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8080/dashboard-health
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  app:
+    name: road-dna
+    driver: bridge

@@ -1,0 +1,133 @@
+name: Deploy on-premise
+
+on:
+  push:
+    branches:
+      - docs/road_dna-plan
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: road-dna-production
+  cancel-in-progress: false
+
+env:
+  API_IMAGE: ghcr.io/nextach/road-dna-api
+  DASHBOARD_IMAGE: ghcr.io/nextach/road-dna-dashboard
+
+jobs:
+  deploy:
+    name: Build, publish, and deploy
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Sign in to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish API image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: deploy/Dockerfile.api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:${{ github.sha }}
+            ${{ env.API_IMAGE }}:road-dna-plan
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and publish dashboard image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: deploy/Dockerfile.dashboard
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DASHBOARD_IMAGE }}:${{ github.sha }}
+            ${{ env.DASHBOARD_IMAGE }}:road-dna-plan
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,mode=max,scope=dashboard
+
+      - name: Configure deployment SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.ONPREM_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.ONPREM_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/road_dna_deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/road_dna_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Upload deployment configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.ONPREM_HOST }}
+          DEPLOY_USER: ${{ secrets.ONPREM_USER }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/road_dna_deploy -o BatchMode=yes"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
+            'mkdir -p "$HOME/Downloads/road-dna/deploy"'
+          rsync -az --delete \
+            --exclude '.env' \
+            --exclude 'release.env' \
+            --exclude 'release.env.previous' \
+            -e "$SSH" \
+            deploy/ \
+            "$DEPLOY_USER@$DEPLOY_HOST:Downloads/road-dna/deploy/"
+          printf 'ROAD_DNA_API_IMAGE=%s:%s\nROAD_DNA_DASHBOARD_IMAGE=%s:%s\n' \
+            "$API_IMAGE" "$GITHUB_SHA" "$DASHBOARD_IMAGE" "$GITHUB_SHA" \
+            > "$RUNNER_TEMP/road-dna-release.env"
+          scp -i "$HOME/.ssh/road_dna_deploy" -o BatchMode=yes \
+            "$RUNNER_TEMP/road-dna-release.env" \
+            "$DEPLOY_USER@$DEPLOY_HOST:Downloads/road-dna/deploy/release.env.candidate"
+
+      - name: Pull and activate release
+        env:
+          DEPLOY_HOST: ${{ secrets.ONPREM_HOST }}
+          DEPLOY_USER: ${{ secrets.ONPREM_USER }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SSH="ssh -i $HOME/.ssh/road_dna_deploy -o BatchMode=yes"
+          printf '%s' "$GHCR_TOKEN" \
+            | $SSH "$DEPLOY_USER@$DEPLOY_HOST" \
+              "docker login ghcr.io --username '$GITHUB_ACTOR' --password-stdin"
+          $SSH "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd "$HOME/Downloads/road-dna/deploy"
+          if [ -f release.env ]; then
+            cp release.env release.env.previous
+          fi
+          if ROAD_DNA_RELEASE_FILE="$PWD/release.env.candidate" ./deploy.sh; then
+            mv release.env.candidate release.env
+            exit 0
+          fi
+          if [ -f release.env.previous ]; then
+            ROAD_DNA_RELEASE_FILE="$PWD/release.env.previous" ./deploy.sh
+          fi
+          exit 1
+          REMOTE
+
+      - name: Verify public deployment
+        run: |
+          curl --fail --show-error --silent \
+            --retry 10 --retry-delay 3 --retry-all-errors \
+            https://kimtaeeun.site/road-dna/health \
+            | grep -q '"status":"ok"'
