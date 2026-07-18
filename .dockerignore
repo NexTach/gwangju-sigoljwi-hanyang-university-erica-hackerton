@@ -11,5 +11,4 @@
 **/*.log
 **/*.tsbuildinfo
 apps/mobile
-docs
 tmp
