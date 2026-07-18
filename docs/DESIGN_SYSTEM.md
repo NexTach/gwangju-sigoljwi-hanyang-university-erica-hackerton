@@ -61,6 +61,11 @@ Mobile                         Dashboard
 ```
 
 모바일은 4pt 기본 격자와 20px 화면 여백, 대시보드는 12-column 유동 격자를 쓴다.
+모바일 5탭 내비게이션은 모든 탭 화면에서 유지되며, 선택 표시가 이동하고
+본문은 짧은 수평 이동과 페이드로 전환된다.
+로그인 브랜드 버튼은 높이·radius·아이콘 슬롯·타이포 구조를 공유하고,
+공식 심볼과 브랜드 표면색만 구분한다. 로그인 캐러셀은 이웃 카드가 노출되지 않는
+단일 카드 fade-through로 자동·스와이프·순환 전환한다.
 콘텐츠 최대 너비는 1440px다.
 
 ### Signature: Companion Route
@@ -117,4 +122,6 @@ Mobile                         Dashboard
 - 화면 읽기 순서가 시각 순서와 일치
 - 200% 글자 확대에서 CTA와 핵심 정보가 잘리지 않음
 - `prefers-reduced-motion`에서 Ribbon과 sheet 전환 제거
+- 일반 탭의 Material splash·검정 highlight는 쓰지 않는다. 선택 상태는 컴포넌트
+  자체의 색·위치 변화로 알리고 키보드 focus는 coral 표시로 유지한다.
 - 지도 정보가 목록/텍스트로도 제공됨

@@ -75,13 +75,17 @@ flutter run \
 프로토타입 시연용 APK는 다음 명령으로 빌드합니다.
 
 ```bash
-flutter build apk --release \
+flutter build apk --debug \
   --dart-define=ROAD_DNA_DEMO_MODE=true
 ```
+
+디버그 시연 앱은 `com.nextach.roaddna.road_dna_mobile.demo`로 설치되어, 다른
+서명으로 설치된 운영 앱과 충돌하지 않습니다.
 
 ## 핵심 문서
 
 - [기술 아키텍처](docs/ARCHITECTURE.md)
+- [테스트 전략](docs/TESTING.md)
 - [디자인 시스템](docs/DESIGN_SYSTEM.md)
 - [센서 보정 가이드](docs/CALIBRATION.md)
 - [개인정보·보관 정책](docs/PRIVACY.md)

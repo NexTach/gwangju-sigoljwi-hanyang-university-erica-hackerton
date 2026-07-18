@@ -63,7 +63,7 @@ curl -fsS http://127.0.0.1:18080/health
 
 ```bash
 curl -fsS https://kimtaeeun.site/road-dna/health
-curl -fsS 'https://kimtaeeun.site/road-dna/api/v1/roads/nearby?latitude=35.15995&longitude=126.85315&radius=2000&movementType=WHEELCHAIR'
+curl -fsS 'https://kimtaeeun.site/road-dna/api/v1/roads/nearby?latitude=35.17882&longitude=126.90051&radius=2000&movementType=WHEELCHAIR'
 ```
 
 ## 롤백

@@ -172,7 +172,7 @@ Wheelchair Sensor Mode / Stroller Sensor Mode / Contributor Mode
 - 산책: 홈 → 저장된 이동 유형으로 경로 비교 → 산책 중 → 산책 리포트
 - 탐색: 주변 정보, 커뮤니티·글쓰기, 산책 리포트 목록, 알림, 프로필, 센서 분석 상세, 도로 상세
 - 웹: 접근성 핵심 지표, 도로 상태 지도, 개선 우선순위 표
-- 프로토타입에 보이는 제어: 데모 간편 로그인, 약관 선택, 이동 유형 선택, 안전 경로 출발, 일시정지/계속하기, 종료, 공유/저장, 주변·커뮤니티 필터, 커뮤니티 제보 등록, 알림 확인, 5탭 하단 탐색, 설정 목록, 로그아웃, 도로 회피 안내
+- 프로토타입에 보이는 제어: 공식 브랜드 자산을 쓴 데모 간편 로그인, 자동·수동·순환 안내 캐러셀, 약관 선택·상세 보기, 이동 유형 선택, 안전 경로 출발, 일시정지/계속하기, 종료, 공유/저장, 주변·커뮤니티 필터, 커뮤니티 제보 등록, 알림 확인, 애니메이션 5탭 하단 탐색, 설정 목록, 로그아웃, 도로 회피 안내
 
 다음 항목은 내부 개발 도구 또는 후속 범위이며 데모 사용자 화면에 노출하지 않는다.
 
@@ -335,8 +335,8 @@ Base URL: `/api/v1`
 ```json
 // Request
 {
-  "latitude": 35.1595,
-  "longitude": 126.8526,
+  "latitude": 35.1786,
+  "longitude": 126.9021,
   "gpsAccuracy": 4.2,
   "severity": 0.82,
   "peakValue": 3.42,
@@ -414,9 +414,9 @@ ROAD_SCORE (score_id, road_segment_id, movement_type, score, confidence,
 | # | 화면 | Route | 핵심 |
 |---|---|---|---|
 | 01 | Splash | `/splash` | UUID 확인/생성 → 데모 로그인 |
-| 02 | Login | `/login` | 카카오/구글 간편 로그인 시연 → 권한 동의 |
+| 02 | Login | `/login` | 동일 구조의 공식 카카오/구글 브랜드 버튼, 이웃 카드가 비치지 않는 3장 자동·스와이프 순환 안내 → 권한 동의 |
 | 03 | Permission | `/permission` | Location + Motion Sensor 권한, 거부 시 기능 제한 안내 |
-| 04 | Terms | `/terms` | 필수·선택 약관 동의 |
+| 04 | Terms | `/terms` | 필수·선택 약관 동의와 항목별 데모 상세 내역 |
 | 05 | Nickname | `/nickname` | 2~10자 닉네임 입력 |
 | 06 | Movement Type | `/movement` | 최초 1회 ♿ 휠체어 / 👶 유모차 / 🚶 보행 선택 |
 | 07 | Home Map | `/home` | 지도, 현재 위치, Road DNA Layer, Barrier Marker, CTA **[산책 시작하기]** |
