@@ -15,7 +15,6 @@ export const SessionStatusSchema = Type.Union([
   Type.Literal("COMPLETED"),
   Type.Literal("CANCELLED"),
 ]);
-export type SessionStatus = Static<typeof SessionStatusSchema>;
 
 export const EventStatusSchema = Type.Union([
   Type.Literal("ACCEPTED"),
@@ -72,11 +71,3 @@ export const ErrorResponseSchema = Type.Object(
   },
   { additionalProperties: false },
 );
-export type ErrorResponse = Static<typeof ErrorResponseSchema>;
-
-export const PaginationSchema = Type.Object({
-  limit: Type.Integer({ maximum: 100, minimum: 1 }),
-  offset: Type.Integer({ minimum: 0 }),
-  total: Type.Integer({ minimum: 0 }),
-});
-export type Pagination = Static<typeof PaginationSchema>;

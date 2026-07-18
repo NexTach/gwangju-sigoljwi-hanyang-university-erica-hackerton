@@ -10,13 +10,6 @@ import type {
 
 const movements: MovementType[] = ["WHEELCHAIR", "STROLLER", "WALKING"];
 
-export const yongbongDemoBounds = {
-  maximumLatitude: 35.1873028,
-  maximumLongitude: 126.9157899,
-  minimumLatitude: 35.1716449,
-  minimumLongitude: 126.8862124,
-} as const;
-
 export const yongbongDemoCenter = {
   latitude: 35.1788215,
   longitude: 126.900505,
@@ -182,7 +175,7 @@ const grade = (score: number): RoadGrade =>
         ? "CAUTION"
         : "POOR";
 
-export const demoRoads: RoadMapItem[] = movements.flatMap(
+const demoRoads: RoadMapItem[] = movements.flatMap(
   (movementType, movementIndex) =>
     roadProfiles.map((profile, index) => {
       const score = profile.scores[movementIndex] ?? profile.scores[0];

@@ -402,27 +402,6 @@ a:focus-visible {
   margin: 4px 0 0;
 }
 
-.signal-count {
-  align-items: center;
-  background: var(--city-subtle);
-  border-radius: 999px;
-  color: var(--city-muted);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 10.5px;
-  font-weight: 700;
-  gap: 7px;
-  padding: 7px 10px;
-}
-
-.signal-count i {
-  background: var(--city-green);
-  border-radius: 50%;
-  box-shadow: 0 0 0 3px var(--rd-color-status-success-subtle);
-  height: 6px;
-  width: 6px;
-}
-
 .dashboard-map {
   min-height: 320px;
   overflow: hidden;

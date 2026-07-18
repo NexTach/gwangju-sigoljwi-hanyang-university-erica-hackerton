@@ -85,5 +85,3 @@ export async function getRoadDetail(
   if (demoMode) return demoDetail(roadSegmentId);
   return get(`/api/v1/roads/${encodeURIComponent(roadSegmentId)}`);
 }
-
-export const isDemoMode = demoMode;

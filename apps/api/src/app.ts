@@ -1,5 +1,4 @@
 import cors from "@fastify/cors";
-import sensible from "@fastify/sensible";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { Type, type TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
@@ -38,7 +37,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       callback(new Error("Origin is not allowed"), false);
     },
   });
-  void app.register(sensible);
   void app.register(swagger, {
     openapi: {
       info: {

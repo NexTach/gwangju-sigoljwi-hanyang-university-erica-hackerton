@@ -29,7 +29,6 @@ import type {
 } from "./repository.js";
 
 interface MemoryRoad {
-  createdAt: string;
   latitude: number;
   longitude: number;
   roadName: string;
@@ -41,9 +40,7 @@ interface MemoryEvent {
   anonymousUserId: string;
   detectedAt: string;
   event: CreateSensorEventRequest;
-  eventId: string;
   roadSegmentId: string | null;
-  sessionId: string;
   status: EventStatus;
 }
 
@@ -129,9 +126,7 @@ export class MemoryRoadRepository implements RoadRepository {
       anonymousUserId: session.anonymousUserId,
       detectedAt: event.detectedAt,
       event: structuredClone(event),
-      eventId,
       roadSegmentId,
-      sessionId: session.sessionId,
       status,
     });
 
@@ -287,7 +282,6 @@ export class MemoryRoadRepository implements RoadRepository {
     for (const input of roads) {
       const existing = this.roads.get(input.roadSegmentId);
       this.roads.set(input.roadSegmentId, {
-        createdAt: existing?.createdAt ?? now,
         latitude: input.latitude,
         longitude: input.longitude,
         roadName: input.roadName,
@@ -304,7 +298,6 @@ export class MemoryRoadRepository implements RoadRepository {
     const roadSegmentId = randomUUID();
     const now = new Date().toISOString();
     const road: MemoryRoad = {
-      createdAt: now,
       latitude: location.latitude,
       longitude: location.longitude,
       roadName: `Road DNA 구간 ${this.roads.size + 1}`,

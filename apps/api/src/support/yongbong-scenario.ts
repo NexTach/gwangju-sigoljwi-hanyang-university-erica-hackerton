@@ -4,6 +4,7 @@ import type {
   MovementType,
 } from "@road-dna/contracts";
 import { distanceMeters } from "../domain/geo.js";
+import { impactLevel } from "../domain/scoring.js";
 import type { RoadRepository } from "../data/repository.js";
 
 export interface ScenarioCoordinate {
@@ -164,7 +165,7 @@ const profileById = new Map(
   yongbongRoadProfiles.map((profile) => [profile.roadSegmentId, profile]),
 );
 
-export const maximumRoadHintDistanceMeters = 80;
+const maximumRoadHintDistanceMeters = 80;
 
 export function isWithinYongbongBounds(location: ScenarioCoordinate): boolean {
   return (
@@ -308,12 +309,7 @@ export async function seedYongbongScenario(
                   4_000,
             ).toISOString(),
             gpsAccuracy: 4 + (contributor % 4),
-            impactLevel:
-              severity >= 0.75
-                ? "HIGH_IMPACT"
-                : severity >= 0.5
-                  ? "MEDIUM_IMPACT"
-                  : "LOW_IMPACT",
+            impactLevel: impactLevel(severity),
             latitude: road.latitude + contributor * 0.000001,
             longitude: road.longitude + contributor * 0.000001,
             movementType,

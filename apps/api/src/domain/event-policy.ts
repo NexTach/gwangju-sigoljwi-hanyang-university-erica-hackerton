@@ -3,10 +3,10 @@ import type {
   EventStatus,
 } from "@road-dna/contracts";
 
-export const maximumGpsAccuracyMeters = 25;
-export const minimumMovementSpeedMetersPerSecond = 0.25;
-export const maximumDropPeak = 22;
-export const minimumSeverity = 0.3;
+const maximumGpsAccuracyMeters = 25;
+const minimumMovementSpeedMetersPerSecond = 0.25;
+const maximumDropPeak = 22;
+const minimumSeverity = 0.3;
 
 export function classifyEvent(
   event: CreateSensorEventRequest,
