@@ -131,3 +131,11 @@ jobs:
             --retry 10 --retry-delay 3 --retry-all-errors \
             https://kimtaeeun.site/road-dna/health \
             | grep -q '"status":"ok"'
+          curl --fail --show-error --silent \
+            --retry 10 --retry-delay 3 --retry-all-errors \
+            'https://kimtaeeun.site/road-dna/api/v1/roads/nearby?latitude=35.17882&longitude=126.90051&radius=2000&movementType=WHEELCHAIR' \
+            | grep -q '10000000-0000-4000-8000-000000000204'
+          curl --fail --show-error --silent \
+            --retry 10 --retry-delay 3 --retry-all-errors \
+            https://kimtaeeun.site/road-dna/ \
+            | grep -q 'Road DNA'

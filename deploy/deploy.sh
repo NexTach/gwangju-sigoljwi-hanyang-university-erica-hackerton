@@ -37,10 +37,7 @@ compose() {
 compose pull
 compose run --rm --no-deps api node dist/scripts/migrate.js
 compose run --rm --no-deps api node dist/scripts/cleanup.js
-
-if [ "${SEED_DEMO_DATA:-false}" = "true" ]; then
-  compose run --rm --no-deps api node dist/scripts/seed.js
-fi
+compose run --rm --no-deps api node dist/scripts/seed.js
 
 compose up -d --remove-orphans
 
