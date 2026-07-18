@@ -5,7 +5,7 @@ export type MovementFilter = MovementType | "ALL";
 export const movementLabel: Record<MovementFilter, string> = {
   ALL: "전체",
   STROLLER: "유모차",
-  WALKING: "도보",
+  WALKING: "일반 보행",
   WHEELCHAIR: "휠체어",
 };
 

@@ -51,7 +51,7 @@ export async function getPriorities(
   movementType?: MovementType,
 ): Promise<PriorityRoadsResponse> {
   if (demoMode) return demoPriorities(movementType);
-  const query = new URLSearchParams({ limit: "20" });
+  const query = new URLSearchParams({ limit: "100" });
   if (movementType) query.set("movementType", movementType);
   return get(`/api/v1/dashboard/priorities?${query}`);
 }

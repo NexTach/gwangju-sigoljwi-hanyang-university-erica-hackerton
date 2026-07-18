@@ -1,13 +1,30 @@
+import type { PriorityRoad, RoadMapItem } from "@road-dna/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, EmptyState, Skeleton } from "@road-dna/ui";
 import { MapPinned } from "lucide-react";
-import { lazy, Suspense } from "react";
-import { getNearbyRoads, getOverview, getPriorities } from "./api";
-import { gradeLabel } from "./types";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  getNearbyRoads,
+  getOverview,
+  getPriorities,
+  getRoadDetail,
+} from "./api";
+import { RoadDetailPanel } from "./RoadDetailPanel";
+import { gradeLabel, movementLabel } from "./types";
 
 const RoadMap = lazy(() =>
   import("./RoadMap").then((module) => ({ default: module.RoadMap })),
 );
+
+const pollingInterval = 5_000;
 
 const distance = (meters: number): string =>
   meters >= 1_000
@@ -28,6 +45,14 @@ const referenceDate = (): string => {
   return `${get("year")}.${get("month")}.${get("day")}`;
 };
 
+const synchronizedTime = (timestamp: number): string =>
+  new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(timestamp));
+
 const gradeClass = (grade: string): string => {
   if (grade === "GOOD") return "is-good";
   if (grade === "POOR") return "is-poor";
@@ -35,27 +60,154 @@ const gradeClass = (grade: string): string => {
   return "is-caution";
 };
 
+interface ComparableRoad {
+  confidence: number;
+  roadSegmentId: string;
+  score: number | null;
+}
+
+type RoadComparator<T extends ComparableRoad> = (first: T, second: T) => number;
+
+const scoreOrder = <T extends ComparableRoad>(first: T, second: T): number =>
+  (first.score ?? Number.POSITIVE_INFINITY) -
+    (second.score ?? Number.POSITIVE_INFINITY) ||
+  second.confidence - first.confidence;
+
+const priorityOrder = <T extends ComparableRoad>(
+  first: T,
+  second: T,
+): number => {
+  const firstPriority = (100 - (first.score ?? 100)) * (0.5 + first.confidence);
+  const secondPriority =
+    (100 - (second.score ?? 100)) * (0.5 + second.confidence);
+  return secondPriority - firstPriority || scoreOrder(first, second);
+};
+
+const oneRoadPerSegment = <T extends ComparableRoad>(
+  roads: T[],
+  compare: RoadComparator<T>,
+): T[] => {
+  const selected = new Map<string, T>();
+  for (const road of roads) {
+    const current = selected.get(road.roadSegmentId);
+    const score = road.score ?? Number.POSITIVE_INFINITY;
+    const currentScore = current?.score ?? Number.POSITIVE_INFINITY;
+    if (
+      !current ||
+      score < currentScore ||
+      (score === currentScore && road.confidence > current.confidence)
+    ) {
+      selected.set(road.roadSegmentId, road);
+    }
+  }
+  return [...selected.values()].sort(compare);
+};
+
 export function Dashboard() {
+  const [selectedRoadId, setSelectedRoadId] = useState<string | null>(null);
+  const selectionTriggerRef = useRef<HTMLElement | null>(null);
   const overview = useQuery({
     queryFn: () => getOverview(),
     queryKey: ["dashboard", "overview"],
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    placeholderData: (previousData) => previousData,
+    refetchInterval: pollingInterval,
+    staleTime: pollingInterval - 1_000,
   });
   const priorities = useQuery({
     queryFn: () => getPriorities(),
     queryKey: ["dashboard", "priorities"],
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    placeholderData: (previousData) => previousData,
+    refetchInterval: pollingInterval,
+    staleTime: pollingInterval - 1_000,
   });
   const roads = useQuery({
     queryFn: () => getNearbyRoads(),
     queryKey: ["roads", "nearby"],
-    refetchInterval: 30_000,
-    staleTime: 15_000,
+    placeholderData: (previousData) => previousData,
+    refetchInterval: pollingInterval,
+    staleTime: pollingInterval - 1_000,
+  });
+  const detail = useQuery({
+    enabled: Boolean(selectedRoadId),
+    queryFn: () => getRoadDetail(selectedRoadId!),
+    queryKey: ["roads", "detail", selectedRoadId],
+    refetchInterval: selectedRoadId ? pollingInterval : false,
+    staleTime: pollingInterval - 1_000,
   });
   const anyError = overview.error ?? priorities.error ?? roads.error;
-  const detectedCandidateCount = priorities.data?.roads.length;
+  const visiblePriorities = useMemo(
+    () =>
+      oneRoadPerSegment<PriorityRoad>(
+        priorities.data?.roads ?? [],
+        priorityOrder,
+      ),
+    [priorities.data?.roads],
+  );
+  const visibleRoads = useMemo(
+    () => oneRoadPerSegment<RoadMapItem>(roads.data?.roads ?? [], scoreOrder),
+    [roads.data?.roads],
+  );
+  const displayedRoadCount = overview.data?.roadCount ?? visibleRoads.length;
+  const isSynchronizing =
+    overview.isFetching || priorities.isFetching || roads.isFetching;
+  const hasConnectedData = Boolean(
+    overview.data && priorities.data && roads.data,
+  );
+  const lastSynchronizedAt = Math.max(
+    overview.dataUpdatedAt,
+    priorities.dataUpdatedAt,
+    roads.dataUpdatedAt,
+  );
+  const connectionLabel = anyError
+    ? "서버 재연결 중"
+    : isSynchronizing && !hasConnectedData
+      ? "서버 연결 중"
+      : isSynchronizing
+        ? "데이터 동기화 중"
+        : "서버 연결됨";
+  const connectionClass = anyError
+    ? "is-error"
+    : isSynchronizing
+      ? "is-syncing"
+      : "is-connected";
+
+  const selectRoad = useCallback(
+    (roadSegmentId: string, trigger?: HTMLElement) => {
+      const activeElement = document.activeElement;
+      selectionTriggerRef.current =
+        trigger ??
+        (activeElement instanceof HTMLElement ? activeElement : null);
+      setSelectedRoadId(roadSegmentId);
+    },
+    [],
+  );
+
+  const closeRoadDetail = useCallback(() => {
+    const trigger = selectionTriggerRef.current;
+    const roadSegmentId = selectedRoadId;
+    setSelectedRoadId(null);
+    window.requestAnimationFrame(() => {
+      if (trigger?.isConnected) {
+        trigger.focus({ preventScroll: true });
+        return;
+      }
+      if (!roadSegmentId) return;
+      document
+        .querySelector<HTMLElement>(
+          `[data-road-id="${roadSegmentId}"] .priority-road-label`,
+        )
+        ?.focus({ preventScroll: true });
+    });
+  }, [selectedRoadId]);
+
+  useEffect(() => {
+    if (!selectedRoadId) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedRoadId]);
 
   return (
     <div className="dashboard-shell">
@@ -84,13 +236,32 @@ export function Dashboard() {
           </div>
 
           <div className="dashboard-header__meta">
-            <span>{referenceDate()} 기준</span>
+            <div
+              aria-label={`${connectionLabel}${
+                lastSynchronizedAt
+                  ? `, 최근 동기화 ${synchronizedTime(lastSynchronizedAt)}`
+                  : ""
+              }`}
+              className={`dashboard-sync ${connectionClass}`}
+            >
+              <i aria-hidden />
+              <span>{connectionLabel}</span>
+              {lastSynchronizedAt > 0 && (
+                <time dateTime={new Date(lastSynchronizedAt).toISOString()}>
+                  {synchronizedTime(lastSynchronizedAt)}
+                </time>
+              )}
+            </div>
+            <span className="dashboard-reference-date">
+              {referenceDate()} 기준
+            </span>
           </div>
         </header>
 
         {anyError && (
-          <Alert title="최신 데이터를 불러오지 못했어요" tone="critical">
-            {anyError.message} API 연결과 CORS 설정을 확인해 주세요.
+          <Alert title="최신 데이터를 연결하지 못했어요" tone="critical">
+            네트워크나 데이터 서버 상태를 확인해 주세요. 5초 뒤 자동으로 다시
+            시도합니다.
           </Alert>
         )}
 
@@ -113,17 +284,56 @@ export function Dashboard() {
                   <span className="metric-card__label">
                     Gwangju Accessibility Index
                   </span>
-                  <strong className="metric-card__value">
-                    {overview.data.accessibilityIndex === null
-                      ? "—"
-                      : overview.data.accessibilityIndex.toLocaleString(
-                          "ko-KR",
-                        )}
-                  </strong>
-                  <span className="metric-card__note metric-card__note--good">
-                    {overview.data.roadCount.toLocaleString("ko-KR")}개 도로
-                    구간의 익명 신호 기반
-                  </span>
+                  <div className="metric-card__featured-body">
+                    <div>
+                      <strong className="metric-card__value">
+                        {overview.data.accessibilityIndex === null
+                          ? "—"
+                          : overview.data.accessibilityIndex.toLocaleString(
+                              "ko-KR",
+                            )}
+                      </strong>
+                      <span className="metric-card__note metric-card__note--good">
+                        {displayedRoadCount.toLocaleString("ko-KR")}개 도로
+                        구간의 익명 신호 기반
+                      </span>
+                    </div>
+                    <svg
+                      aria-hidden
+                      className="companion-route"
+                      fill="none"
+                      viewBox="0 0 104 54"
+                    >
+                      <path
+                        className="companion-route__rail"
+                        d="M6 43c19 4 23-27 43-27 17 0 19 20 32 20 9 0 12-12 17-28"
+                        pathLength="100"
+                      />
+                      <path
+                        className="companion-route__line"
+                        d="M6 43c19 4 23-27 43-27 17 0 19 20 32 20 9 0 12-12 17-28"
+                        pathLength="100"
+                      />
+                      <circle
+                        className="companion-route__start"
+                        cx="6"
+                        cy="43"
+                        r="4"
+                      />
+                      <circle
+                        className="companion-route__caution"
+                        cx="78"
+                        cy="36"
+                        r="3.5"
+                      />
+                      <circle
+                        className="companion-route__end"
+                        cx="98"
+                        cy="8"
+                        r="4"
+                      />
+                    </svg>
+                  </div>
                 </article>
 
                 <article className="metric-card">
@@ -139,12 +349,10 @@ export function Dashboard() {
                 <article className="metric-card">
                   <span className="metric-card__label">이동 장애 후보</span>
                   <strong className="metric-card__value">
-                    {detectedCandidateCount === undefined
-                      ? "—"
-                      : `${detectedCandidateCount.toLocaleString("ko-KR")}건`}
+                    {overview.data.acceptedEventCount.toLocaleString("ko-KR")}건
                   </strong>
                   <span className="metric-card__note">
-                    우선 검토가 필요한 구간
+                    수용된 이동 충격 신호
                   </span>
                 </article>
 
@@ -173,11 +381,15 @@ export function Dashboard() {
           >
             {roads.isPending ? (
               <Skeleton className="map-skeleton" height={320} />
-            ) : roads.data?.roads.length ? (
+            ) : visibleRoads.length ? (
               <Suspense
                 fallback={<Skeleton className="map-skeleton" height={320} />}
               >
-                <RoadMap roads={roads.data.roads} />
+                <RoadMap
+                  onSelect={selectRoad}
+                  roads={visibleRoads}
+                  selectedRoadId={selectedRoadId}
+                />
               </Suspense>
             ) : (
               <EmptyState
@@ -202,7 +414,7 @@ export function Dashboard() {
                     <Skeleton height={52} key={index} />
                   ))}
                 </div>
-              ) : priorities.data?.roads.length ? (
+              ) : visiblePriorities.length ? (
                 <table className="priority-table">
                   <thead>
                     <tr>
@@ -213,15 +425,47 @@ export function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {priorities.data.roads.map((road) => (
-                      <tr key={`${road.roadSegmentId}-${road.movementType}`}>
+                    {visiblePriorities.map((road) => (
+                      <tr
+                        data-road-id={road.roadSegmentId}
+                        data-selected={road.roadSegmentId === selectedRoadId}
+                        key={road.roadSegmentId}
+                        onClick={(event) => {
+                          const trigger =
+                            event.currentTarget.querySelector<HTMLElement>(
+                              ".priority-road-label",
+                            );
+                          selectRoad(road.roadSegmentId, trigger ?? undefined);
+                        }}
+                      >
                         <td>
-                          <span className="priority-road-label">
+                          <button
+                            aria-controls="road-detail-panel"
+                            aria-expanded={
+                              road.roadSegmentId === selectedRoadId
+                            }
+                            aria-label={`${road.roadName}, ${
+                              movementLabel[road.movementType]
+                            } 기준 ${road.score}점, 상세 보기`}
+                            className="priority-road-label"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              selectRoad(
+                                road.roadSegmentId,
+                                event.currentTarget,
+                              );
+                            }}
+                            type="button"
+                          >
                             <i aria-hidden className={gradeClass(road.grade)} />
                             <span>
                               <strong>{road.roadName}</strong>
+                              <small>
+                                {movementLabel[road.movementType]} ·{" "}
+                                {gradeLabel[road.grade]}
+                              </small>
                             </span>
-                          </span>
+                          </button>
                         </td>
                         <td>
                           <strong
@@ -255,6 +499,24 @@ export function Dashboard() {
           </article>
         </section>
       </main>
+
+      {selectedRoadId && (
+        <div className="road-detail-layer">
+          <button
+            aria-label="도로 상세 닫기"
+            className="road-detail-backdrop"
+            onClick={closeRoadDetail}
+            tabIndex={-1}
+            type="button"
+          />
+          <RoadDetailPanel
+            data={detail.data}
+            error={detail.error}
+            isPending={detail.isPending}
+            onClose={closeRoadDetail}
+          />
+        </div>
+      )}
     </div>
   );
 }

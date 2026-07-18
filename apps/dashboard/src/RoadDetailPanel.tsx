@@ -31,14 +31,38 @@ export function RoadDetailPanel({
   onClose,
 }: RoadDetailPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     closeRef.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) {
+        event.preventDefault();
+        closeRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
   return (
@@ -46,6 +70,8 @@ export function RoadDetailPanel({
       aria-labelledby="road-detail-title"
       aria-modal="true"
       className="road-detail-panel"
+      id="road-detail-panel"
+      ref={panelRef}
       role="dialog"
     >
       <header className="road-detail-panel__header">
@@ -76,8 +102,8 @@ export function RoadDetailPanel({
 
       {error && (
         <div className="road-detail-panel__error" role="alert">
-          <strong>구간을 불러오지 못했어요</strong>
-          <p>{error.message}</p>
+          <strong>구간 데이터를 연결하지 못했어요</strong>
+          <p>서버 상태를 확인해 주세요. 5초 뒤 자동으로 다시 시도합니다.</p>
         </div>
       )}
 
@@ -140,8 +166,8 @@ export function RoadDetailPanel({
             >
               <h3 id="recent-events-title">최근 감지 기록</h3>
               <ul>
-                {data.recentEvents.slice(0, 3).map((event) => (
-                  <li key={event.detectedAt}>
+                {data.recentEvents.slice(0, 3).map((event, index) => (
+                  <li key={`${event.detectedAt}-${event.impactLevel}-${index}`}>
                     <i
                       aria-hidden
                       className={
