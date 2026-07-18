@@ -2,7 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/app_config.dart';
+import '../core/geo.dart';
 import '../core/models.dart';
+import '../demo/yongbong_demo_data.dart';
+
+typedef AnonymousContributionPermission = bool Function();
 
 String formatApiTimestamp(DateTime value) =>
     DateTime.fromMillisecondsSinceEpoch(
@@ -20,26 +24,35 @@ class RoadDnaApiException implements Exception {
 }
 
 class RoadDnaApi {
-  RoadDnaApi(AppConfig config, {Dio? dio})
-    : _demoMode = config.demoMode,
-      _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              baseUrl: config.apiBaseUrl,
-              connectTimeout: const Duration(seconds: 5),
-              headers: const {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-              receiveTimeout: const Duration(seconds: 8),
-              sendTimeout: const Duration(seconds: 8),
-            ),
-          );
+  RoadDnaApi(
+    AppConfig config, {
+    AnonymousContributionPermission? allowAnonymousContributions,
+    Dio? dio,
+  }) : _allowAnonymousContributions =
+           allowAnonymousContributions ?? _allowContributions,
+       _demoMode = config.demoMode,
+       _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: config.apiBaseUrl,
+               connectTimeout: const Duration(seconds: 5),
+               headers: const {
+                 'Accept': 'application/json',
+                 'Content-Type': 'application/json',
+               },
+               receiveTimeout: const Duration(seconds: 8),
+               sendTimeout: const Duration(seconds: 8),
+             ),
+           );
 
+  static const _privateSessionPrefix = 'local-private-';
   final Dio _dio;
+  final AnonymousContributionPermission _allowAnonymousContributions;
   final bool _demoMode;
   static const _uuid = Uuid();
+
+  static bool _allowContributions() => true;
 
   Future<MovementSession> startSession({
     required String anonymousUserId,
@@ -52,25 +65,34 @@ class RoadDnaApi {
         startedAt: DateTime.now().toUtc(),
       );
     }
-    return _request(
-      () async {
-        final response = await _dio.post<Map<String, dynamic>>(
-          '/api/v1/sessions',
-          data: {
-            'anonymousUserId': anonymousUserId,
-            'appVersion': '0.1.0',
-            'deviceModel': 'Flutter device',
-            'movementType': movementType.apiName,
-            'startedAt': formatApiTimestamp(DateTime.now()),
-          },
-        );
-        return MovementSession.fromJson(response.data!);
-      },
-    );
+    if (!_allowAnonymousContributions()) {
+      return MovementSession(
+        movementType: movementType,
+        sessionId: '$_privateSessionPrefix${_uuid.v4()}',
+        startedAt: DateTime.now().toUtc(),
+      );
+    }
+    return _request(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/sessions',
+        data: {
+          'anonymousUserId': anonymousUserId,
+          'appVersion': '0.1.3',
+          'deviceModel': 'Flutter device',
+          'movementType': movementType.apiName,
+          'startedAt': formatApiTimestamp(DateTime.now()),
+        },
+      );
+      return MovementSession.fromJson(response.data!);
+    });
   }
 
   Future<void> endSession(String sessionId) async {
-    if (_demoMode) return;
+    if (_demoMode ||
+        sessionId.startsWith(_privateSessionPrefix) ||
+        !_allowAnonymousContributions()) {
+      return;
+    }
     await _request(
       () => _dio.patch<void>(
         '/api/v1/sessions/$sessionId/end',
@@ -86,39 +108,37 @@ class RoadDnaApi {
     required String sessionId,
   }) async {
     if (_demoMode) {
-      return EventReceipt(
-        eventId: _uuid.v4(),
-        roadSegmentId: candidate.isPossibleDrop ? null : _uuid.v4(),
-        status: candidate.isPossibleDrop
-            ? 'HELD_DROP_PATTERN'
-            : location.accuracy > 25
-            ? 'HELD_LOW_GPS_ACCURACY'
-            : location.speed < 0.25
-            ? 'REJECTED_STATIONARY'
-            : 'ACCEPTED',
+      return _localReceipt(
+        candidate: candidate,
+        location: location,
+        roadSegmentId: candidate.isPossibleDrop
+            ? null
+            : _nearestDemoRoad(location, movementType).roadSegmentId,
       );
     }
-    return _request(
-      () async {
-        final response = await _dio.post<Map<String, dynamic>>(
-          '/api/v1/sessions/$sessionId/events',
-          data: {
-            'anomalyScore': candidate.anomalyScore,
-            'detectedAt': formatApiTimestamp(candidate.detectedAt),
-            'gpsAccuracy': location.accuracy,
-            'impactLevel': candidate.impactLevel.apiName,
-            'latitude': location.latitude,
-            'longitude': location.longitude,
-            'movementType': movementType.apiName,
-            'peakValue': candidate.features.maxPeak,
-            'severity': candidate.severity,
-            'speed': location.speed,
-            'window': candidate.features.toJson(),
-          },
-        );
-        return EventReceipt.fromJson(response.data!);
-      },
-    );
+    if (sessionId.startsWith(_privateSessionPrefix) ||
+        !_allowAnonymousContributions()) {
+      return _localReceipt(candidate: candidate, location: location);
+    }
+    return _request(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/sessions/$sessionId/events',
+        data: {
+          'anomalyScore': candidate.anomalyScore,
+          'detectedAt': formatApiTimestamp(candidate.detectedAt),
+          'gpsAccuracy': location.accuracy,
+          'impactLevel': candidate.impactLevel.apiName,
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+          'movementType': movementType.apiName,
+          'peakValue': candidate.features.maxPeak,
+          'severity': candidate.severity,
+          'speed': location.speed,
+          'window': candidate.features.toJson(),
+        },
+      );
+      return EventReceipt.fromJson(response.data!);
+    });
   }
 
   Future<List<RoadMapItem>> nearbyRoads({
@@ -130,24 +150,20 @@ class RoadDnaApi {
     if (_demoMode) {
       return _demoRoads(movementType);
     }
-    return _request(
-      () async {
-        final response = await _dio.get<Map<String, dynamic>>(
-          '/api/v1/roads/nearby',
-          queryParameters: {
-            'latitude': latitude,
-            'longitude': longitude,
-            'movementType': movementType.apiName,
-            'radius': radius,
-          },
-        );
-        return (response.data!['roads'] as List<dynamic>)
-            .map(
-              (road) => RoadMapItem.fromJson(road as Map<String, dynamic>),
-            )
-            .toList(growable: false);
-      },
-    );
+    return _request(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/roads/nearby',
+        queryParameters: {
+          'latitude': latitude,
+          'longitude': longitude,
+          'movementType': movementType.apiName,
+          'radius': radius,
+        },
+      );
+      return (response.data!['roads'] as List<dynamic>)
+          .map((road) => RoadMapItem.fromJson(road as Map<String, dynamic>))
+          .toList(growable: false);
+    });
   }
 
   Future<RoadDetail> roadDetail(String roadSegmentId) async {
@@ -157,33 +173,32 @@ class RoadDnaApi {
         orElse: () => _demoRoads(MovementType.wheelchair).first,
       );
       return RoadDetail(
-        eventCount: 36,
+        eventCount: road.eventCount * MovementType.values.length,
         roadName: road.roadName,
         roadSegmentId: roadSegmentId,
         scores: MovementType.values
-            .map(
-              (movement) => MovementRoadScore(
-                confidence: 0.72,
-                eventCount: 12,
-                grade: road.grade,
+            .map((movement) {
+              final movementRoad = _demoRoads(movement).firstWhere(
+                (candidate) => candidate.roadSegmentId == road.roadSegmentId,
+              );
+              return MovementRoadScore(
+                confidence: movementRoad.confidence,
+                eventCount: movementRoad.eventCount,
+                grade: movementRoad.grade,
                 movementType: movement,
-                score: (road.score! - movement.index * 4)
-                    .clamp(0, 100)
-                    .toInt(),
-              ),
-            )
+                score: movementRoad.score,
+              );
+            })
             .toList(growable: false),
         updatedAt: road.updatedAt,
       );
     }
-    return _request(
-      () async {
-        final response = await _dio.get<Map<String, dynamic>>(
-          '/api/v1/roads/$roadSegmentId',
-        );
-        return RoadDetail.fromJson(response.data!);
-      },
-    );
+    return _request(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/roads/$roadSegmentId',
+      );
+      return RoadDetail.fromJson(response.data!);
+    });
   }
 
   Future<RouteComparison> compareRoutes({
@@ -194,61 +209,21 @@ class RoadDnaApi {
     required double originLongitude,
   }) async {
     if (_demoMode) {
-      return RouteComparison(
-        disclaimer: '명시적 데모 모드의 거리 기반 시연 경로예요.',
-        routes: [
-          RouteOption(
-            accessibilityScore: 43,
-            coordinates: [
-              (latitude: originLatitude, longitude: originLongitude),
-              (
-                latitude: destinationLatitude,
-                longitude: destinationLongitude,
-              ),
-            ],
-            distance: 520,
-            duration: 480,
-            source: 'MVP_ESTIMATE',
-            type: RouteType.fastest,
-          ),
-          RouteOption(
-            accessibilityScore: 91,
-            coordinates: [
-              (latitude: originLatitude, longitude: originLongitude),
-              (
-                latitude:
-                    (originLatitude + destinationLatitude) / 2 + 0.0003,
-                longitude:
-                    (originLongitude + destinationLongitude) / 2 - 0.0002,
-              ),
-              (
-                latitude: destinationLatitude,
-                longitude: destinationLongitude,
-              ),
-            ],
-            distance: 640,
-            duration: 660,
-            source: 'ROAD_DNA',
-            type: RouteType.accessible,
-          ),
-        ],
-      );
+      return YongbongDemoData.routeComparison;
     }
-    return _request(
-      () async {
-        final response = await _dio.get<Map<String, dynamic>>(
-          '/api/v1/routes',
-          queryParameters: {
-            'destinationLat': destinationLatitude,
-            'destinationLng': destinationLongitude,
-            'movementType': movementType.apiName,
-            'originLat': originLatitude,
-            'originLng': originLongitude,
-          },
-        );
-        return RouteComparison.fromJson(response.data!);
-      },
-    );
+    return _request(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/routes',
+        queryParameters: {
+          'destinationLat': destinationLatitude,
+          'destinationLng': destinationLongitude,
+          'movementType': movementType.apiName,
+          'originLat': originLatitude,
+          'originLng': originLongitude,
+        },
+      );
+      return RouteComparison.fromJson(response.data!);
+    });
   }
 
   Future<T> _request<T>(Future<T> Function() request) async {
@@ -270,35 +245,35 @@ class RoadDnaApi {
     }
   }
 
-  List<RoadMapItem> _demoRoads(MovementType movementType) {
-    const values = [
-      (35.15958, 126.85261, 88),
-      (35.15976, 126.85288, 72),
-      (35.15993, 126.85315, 54),
-      (35.16010, 126.85342, 32),
-    ];
-    return [
-      for (final (index, value) in values.indexed)
-        RoadMapItem(
-          confidence: 0.42 + index * 0.14,
-          eventCount: 6 + index * 8,
-          grade: value.$3 >= 80
-              ? RoadGrade.good
-              : value.$3 >= 60
-              ? RoadGrade.normal
-              : value.$3 >= 40
-              ? RoadGrade.caution
-              : RoadGrade.poor,
-          latitude: value.$1,
-          longitude: value.$2,
-          movementType: movementType,
-          roadName: '상무중앙로 ${index + 1}구간',
-          roadSegmentId: '20000000-0000-4000-8000-00000000000$index',
-          score: value.$3,
-          updatedAt: DateTime.now().toUtc().subtract(
-            Duration(minutes: index * 4),
-          ),
-        ),
-    ];
-  }
+  List<RoadMapItem> _demoRoads(MovementType movementType) =>
+      YongbongDemoData.roads(movementType);
+
+  EventReceipt _localReceipt({
+    required ImpactCandidate candidate,
+    required LocationReading location,
+    String? roadSegmentId,
+  }) => EventReceipt(
+    eventId: _uuid.v4(),
+    roadSegmentId: candidate.isPossibleDrop ? null : roadSegmentId,
+    status: candidate.isPossibleDrop
+        ? 'HELD_DROP_PATTERN'
+        : location.accuracy > 25
+        ? 'HELD_LOW_GPS_ACCURACY'
+        : location.speed < 0.25
+        ? 'REJECTED_STATIONARY'
+        : 'ACCEPTED',
+  );
+
+  RoadMapItem _nearestDemoRoad(
+    LocationReading location,
+    MovementType movementType,
+  ) => _demoRoads(movementType).reduce((nearest, candidate) {
+    double distanceTo(RoadMapItem road) => distanceMeters(
+      firstLatitude: location.latitude,
+      firstLongitude: location.longitude,
+      secondLatitude: road.latitude,
+      secondLongitude: road.longitude,
+    );
+    return distanceTo(candidate) < distanceTo(nearest) ? candidate : nearest;
+  });
 }

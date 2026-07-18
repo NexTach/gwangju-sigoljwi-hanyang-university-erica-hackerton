@@ -10,6 +10,7 @@ import {
   demoNearby,
   demoOverview,
   demoPriorities,
+  yongbongDemoCenter,
 } from "./demo-data";
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
@@ -67,8 +68,8 @@ export async function getNearbyRoads(
       get<NearbyRoadsResponse>(
         "/api/v1/roads/nearby?" +
           new URLSearchParams({
-            latitude: "35.15995",
-            longitude: "126.85315",
+            latitude: String(yongbongDemoCenter.latitude),
+            longitude: String(yongbongDemoCenter.longitude),
             movementType: type,
             radius: "2000",
           }),

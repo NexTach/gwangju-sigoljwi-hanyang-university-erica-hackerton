@@ -25,6 +25,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep the installable prototype isolated from any production-signed
+            // build already present on the device.
+            applicationIdSuffix = ".demo"
+            versionNameSuffix = "-demo"
+        }
         release {
             // CI injects a release signing configuration when publishing.
             // Never fall back to a debug key for production artifacts.

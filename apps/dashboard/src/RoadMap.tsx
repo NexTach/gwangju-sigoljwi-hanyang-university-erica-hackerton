@@ -2,6 +2,7 @@ import type { RoadMapItem } from "@road-dna/contracts";
 import type { FeatureCollection, LineString } from "geojson";
 import maplibregl, { type GeoJSONSource } from "maplibre-gl";
 import { useEffect, useRef } from "react";
+import { yongbongDemoCenter } from "./demo-data";
 
 interface RoadMapProps {
   roads: RoadMapItem[];
@@ -35,7 +36,7 @@ export function RoadMap({ roads }: RoadMapProps) {
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return undefined;
     const map = new maplibregl.Map({
-      center: [126.85315, 35.15995],
+      center: [yongbongDemoCenter.longitude, yongbongDemoCenter.latitude],
       container: containerRef.current,
       interactive: false,
       maxZoom: 20,
