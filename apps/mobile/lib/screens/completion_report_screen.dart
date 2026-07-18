@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
+import '../core/geo.dart' as geo;
+import '../services/report_share_service.dart';
 import '../state/tracking_controller.dart';
-import '../ui/companion_map.dart';
 import '../ui/companion_theme.dart';
 import '../ui/companion_widgets.dart';
 import '../ui/demo_report_state.dart';
+import '../ui/road_map_view.dart';
 
 class CompletionReportScreen extends ConsumerWidget {
   const CompletionReportScreen({super.key});
@@ -23,46 +26,38 @@ class CompletionReportScreen extends ConsumerWidget {
         break;
       }
     }
-    final distanceMeters = result.distanceMeters > 20
-        ? result.distanceMeters
-        : 2200;
-    final movement = result.movementType?.label ?? '휠체어';
-    final report =
-        selectedReport ??
-        WalkReport(
-          date: '오늘',
-          distanceKilometers: distanceMeters / 1000,
-          durationMinutes: 26,
-          id: 'pending-report',
-          movementLabel: movement,
-          place: '용봉로 · 방금 걸은 경로',
-          records: const [
-            WalkReportRecord(
-              text: '오크가의 경사로 없는 연석을 피해 안내했어요',
-              tone: WalkReportRecordTone.warning,
-            ),
-            WalkReportRecord(
-              text: '1km의 평탄한 보도를 지났어요',
-              tone: WalkReportRecordTone.positive,
-            ),
-          ],
-          score: result.acceptedEvents > 2 ? 82 : 88,
-          summary: '대체로 편안한 경로였어요',
-        );
+    final report = selectedReport ?? buildCompletedWalkReport(result);
+    final reportTrace = [
+      for (final coordinate in report.routeCoordinates)
+        LatLng(coordinate.latitude, coordinate.longitude),
+    ];
+    final reportImpactPoints = [
+      for (final impact in report.impacts)
+        LatLng(impact.latitude, impact.longitude),
+    ];
 
-    void finish() {
-      final reportsController = ref.read(demoWalkReportsProvider.notifier);
-      if (selectedReport == null) {
-        reportsController.saveCompletedWalk(
-          acceptedEvents: result.acceptedEvents,
-          distanceMeters: result.distanceMeters,
-          movementLabel: movement,
-        );
-      } else {
-        reportsController.save(report);
+    Future<void> finish() async {
+      try {
+        if (selectedReport == null) {
+          await ref.read(demoWalkReportsProvider.notifier).saveNew(report);
+        }
+        ref.read(trackingProvider.notifier).reset();
+        if (context.mounted) context.go('/home');
+      } catch (_) {
+        if (context.mounted) {
+          showCompanionMessage(context, '경로를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+        }
       }
-      ref.read(trackingProvider.notifier).reset();
-      context.go('/home');
+    }
+
+    Future<void> share() async {
+      try {
+        await ref.read(reportShareServiceProvider).share(report);
+      } catch (_) {
+        if (context.mounted) {
+          showCompanionMessage(context, '공유 화면을 열지 못했어요. 잠시 후 다시 시도해 주세요.');
+        }
+      }
     }
 
     return Scaffold(
@@ -132,10 +127,21 @@ class CompletionReportScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const CompanionMapArtwork(
-                height: 154,
-                showLabels: false,
-                style: CompanionMapStyle.report,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: SizedBox(
+                  height: 154,
+                  child: RoadMapView(
+                    center: reportTrace.isEmpty
+                        ? roadDnaFallbackCenter
+                        : reportTrace.first,
+                    fitPadding: const EdgeInsets.all(22),
+                    fitToContent: true,
+                    impactPoints: reportImpactPoints,
+                    trace: reportTrace,
+                    traceColor: CompanionColors.greenBright,
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -164,15 +170,14 @@ class CompletionReportScreen extends ConsumerWidget {
                     child: CompanionPrimaryButton(
                       foregroundColor: CompanionColors.ink,
                       label: '공유하기',
-                      onPressed: () =>
-                          showCompanionMessage(context, '산책 리포트 공유 링크를 준비했어요.'),
+                      onPressed: share,
                       outlined: true,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: CompanionPrimaryButton(
-                      label: '경로 저장',
+                      label: selectedReport == null ? '경로 저장' : '완료',
                       onPressed: finish,
                     ),
                   ),
@@ -196,6 +201,107 @@ class CompletionReportScreen extends ConsumerWidget {
     if (score >= 55) return CompanionColors.amber;
     return CompanionColors.red;
   }
+}
+
+WalkReport buildCompletedWalkReport(TrackingState result) {
+  final measuredMeters = _measuredDistanceMeters(result);
+  final startedAt = result.session?.startedAt ?? _firstTraceTime(result);
+  final endedAt = _lastTrackingTime(result);
+  final durationSeconds = _durationSecondsBetween(startedAt, endedAt);
+  final routeCoordinates = [
+    for (final location in result.routeTrace)
+      (latitude: location.latitude, longitude: location.longitude),
+  ];
+  final reportCoordinates = routeCoordinates.isNotEmpty
+      ? routeCoordinates
+      : result.selectedRoute?.coordinates ?? const [];
+  final impacts = [
+    for (final barrier in result.barriers)
+      WalkReportImpact(
+        detectedAt: barrier.candidate.detectedAt.toUtc().toIso8601String(),
+        impactLevel: barrier.candidate.impactLevel.label,
+        latitude: barrier.location.latitude,
+        longitude: barrier.location.longitude,
+        roadSegmentId: barrier.roadSegmentId,
+        severity: barrier.candidate.severity,
+      ),
+  ];
+  final distanceLabel = formatWalkDistance(measuredMeters / 1000);
+  return WalkReport(
+    date: '오늘',
+    distanceKilometers: measuredMeters / 1000,
+    durationMinutes: durationSeconds ~/ 60,
+    durationSeconds: durationSeconds,
+    endedAt: endedAt,
+    id: 'pending-report',
+    impacts: impacts,
+    movementLabel: result.movementType?.label ?? '휠체어',
+    place: '용봉동 · 방금 걸은 경로',
+    records: [
+      WalkReportRecord(
+        text: impacts.isEmpty
+            ? '이동 중 큰 충격 없이 경로를 마쳤어요'
+            : '이동 충격 ${impacts.length}건과 발생 지점을 기록했어요',
+        tone: impacts.isEmpty
+            ? WalkReportRecordTone.positive
+            : WalkReportRecordTone.warning,
+      ),
+      WalkReportRecord(
+        text: '$distanceLabel의 이동 경로를 기록했어요',
+        tone: WalkReportRecordTone.positive,
+      ),
+    ],
+    routeCoordinates: reportCoordinates,
+    score: result.acceptedEvents > 2 ? 82 : 88,
+    startedAt: startedAt,
+    summary: '대체로 편안한 경로였어요',
+  );
+}
+
+double _measuredDistanceMeters(TrackingState result) {
+  final accumulated = result.distanceMeters;
+  if (accumulated.isFinite && accumulated > 0) return accumulated;
+  var measured = 0.0;
+  for (var index = 1; index < result.routeTrace.length; index++) {
+    final previous = result.routeTrace[index - 1];
+    final current = result.routeTrace[index];
+    final segment = geo.distanceMeters(
+      firstLatitude: previous.latitude,
+      firstLongitude: previous.longitude,
+      secondLatitude: current.latitude,
+      secondLongitude: current.longitude,
+    );
+    if (segment.isFinite && segment > 0) measured += segment;
+  }
+  return measured;
+}
+
+DateTime? _firstTraceTime(TrackingState result) =>
+    result.routeTrace.isEmpty ? null : result.routeTrace.first.recordedAt;
+
+DateTime? _lastTrackingTime(TrackingState result) {
+  DateTime? latest;
+  void include(DateTime? value) {
+    if (value != null && (latest == null || value.isAfter(latest!))) {
+      latest = value;
+    }
+  }
+
+  include(result.latestLocation?.recordedAt);
+  if (result.routeTrace.isNotEmpty) {
+    include(result.routeTrace.last.recordedAt);
+  }
+  for (final barrier in result.barriers) {
+    include(barrier.candidate.detectedAt);
+  }
+  return latest;
+}
+
+int _durationSecondsBetween(DateTime? startedAt, DateTime? endedAt) {
+  if (startedAt == null || endedAt == null || endedAt.isBefore(startedAt)) {
+    return 0;
+  }
+  return endedAt.difference(startedAt).inSeconds;
 }
 
 class _ReportRecord extends StatelessWidget {

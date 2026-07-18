@@ -23,6 +23,35 @@ abstract final class CompanionColors {
   static const amberSoft = Color(0xFFFDEEDA);
 }
 
+final companionButtonOverlayColor = WidgetStateProperty.resolveWith<Color?>((
+  states,
+) {
+  if (states.contains(WidgetState.focused)) {
+    return const Color(0x33FF5A36);
+  }
+  return Colors.transparent;
+});
+
+ButtonStyle companionButtonStyle(ButtonStyle? style) {
+  final baseStyle = style ?? const ButtonStyle();
+  return baseStyle.copyWith(
+    overlayColor: companionButtonOverlayColor,
+    side: WidgetStateProperty.resolveWith((states) {
+      final existingSide = baseStyle.side?.resolve(states);
+      if (states.contains(WidgetState.focused)) {
+        return BorderSide(
+          color: CompanionColors.coralPressed,
+          width: 2,
+          strokeAlign:
+              existingSide?.strokeAlign ?? BorderSide.strokeAlignInside,
+        );
+      }
+      return existingSide;
+    }),
+    splashFactory: NoSplash.splashFactory,
+  );
+}
+
 ThemeData companionTheme() {
   final semanticColors = const RdSemanticColors.light().copyWith(
     actionPrimary: CompanionColors.coralAction,
@@ -153,6 +182,10 @@ ThemeData companionTheme() {
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
     ),
+    focusColor: const Color(0x33FF5A36),
+    highlightColor: Colors.transparent,
+    splashColor: Colors.transparent,
+    splashFactory: NoSplash.splashFactory,
     bottomSheetTheme: const BottomSheetThemeData(
       backgroundColor: CompanionColors.cream,
       modalBarrierColor: Color(0x662E2A26),
@@ -160,6 +193,24 @@ ThemeData companionTheme() {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: companionButtonStyle(base.elevatedButtonTheme.style),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: companionButtonStyle(base.filledButtonTheme.style),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: companionButtonStyle(base.iconButtonTheme.style),
+    ),
+    menuButtonTheme: MenuButtonThemeData(
+      style: companionButtonStyle(base.menuButtonTheme.style),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: companionButtonStyle(base.outlinedButtonTheme.style),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: companionButtonStyle(base.textButtonTheme.style),
     ),
     colorScheme: base.colorScheme.copyWith(
       error: CompanionColors.red,
@@ -196,6 +247,9 @@ ThemeData companionTheme() {
       elevation: 0,
       insetPadding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    ),
+    switchTheme: base.switchTheme.copyWith(
+      overlayColor: companionButtonOverlayColor,
     ),
     textSelectionTheme: const TextSelectionThemeData(
       cursorColor: CompanionColors.coral,

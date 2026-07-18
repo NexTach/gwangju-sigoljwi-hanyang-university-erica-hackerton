@@ -1,24 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../core/models.dart';
 import '../state/providers.dart';
-import '../ui/companion_map.dart';
 import '../ui/companion_theme.dart';
 import '../ui/companion_widgets.dart';
 import '../ui/demo_profile_state.dart';
+import '../ui/road_map_view.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final MapController _mapController = MapController();
+  bool _mapReady = false;
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     final profile = ref.watch(demoProfileProvider);
     final location = ref.watch(currentLocationProvider).value;
-    final latitude = location?.latitude ?? 35.15995;
-    final longitude = location?.longitude ?? 126.85315;
+    final latitude = location?.latitude ?? roadDnaFallbackCenter.latitude;
+    final longitude = location?.longitude ?? roadDnaFallbackCenter.longitude;
+    final mapCenter = LatLng(latitude, longitude);
     final roads = ref.watch(
       nearbyRoadsProvider(
         NearbyRoadRequest(
@@ -41,21 +58,7 @@ class HomeScreen extends ConsumerWidget {
         : (availableScores.reduce((a, b) => a + b) / availableScores.length)
               .round();
 
-    void openRoad() {
-      if (config.demoMode) {
-        context.push('/road/demo-132?name=오크가%20%26%203번길%20구간');
-        return;
-      }
-      if (roadItems.isNotEmpty) {
-        final road = roadItems.first;
-        context.push('/road/${road.roadSegmentId}', extra: road);
-      } else {
-        context.push('/road/demo-132?name=용봉로%20안심%20구간');
-      }
-    }
-
     return Scaffold(
-      bottomNavigationBar: const CompanionBottomNav(current: CompanionTab.home),
       body: SafeArea(
         bottom: false,
         child: ListView(
@@ -190,18 +193,49 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Stack(
               children: [
-                CompanionMapArtwork(onRoadTap: openRoad),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: SizedBox(
+                    height: 190,
+                    child: RoadMapView(
+                      center: mapCenter,
+                      currentLocation: location,
+                      fitPadding: const EdgeInsets.fromLTRB(24, 44, 24, 34),
+                      fitToContent: true,
+                      followCurrentLocation: true,
+                      mapController: _mapController,
+                      onMapReady: () => _mapReady = true,
+                      onRoadTap: _openRoad,
+                      roads: roadItems,
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  left: 14,
+                  top: 14,
+                  child: CompanionTag(
+                    backgroundColor: CompanionColors.white,
+                    foregroundColor: CompanionColors.ink,
+                    label: '광주 북구 · 용봉동',
+                  ),
+                ),
+                if (roadItems.isNotEmpty)
+                  Positioned(
+                    bottom: 32,
+                    left: 14,
+                    child: CompanionTag(
+                      backgroundColor: CompanionColors.white,
+                      foregroundColor: CompanionColors.green,
+                      icon: Icons.route_rounded,
+                      label: '근처에 확인할 구간 ${roadItems.length}개',
+                    ),
+                  ),
                 Positioned(
                   bottom: 14,
                   right: 14,
                   child: CompanionIconButton(
                     icon: Icons.my_location_rounded,
-                    onPressed: () => showCompanionMessage(
-                      context,
-                      location == null
-                          ? '현재 위치를 확인하고 있어요.'
-                          : '현재 위치로 지도를 맞췄어요.',
-                    ),
+                    onPressed: () => _recenter(location),
                     semanticLabel: '현재 위치로 이동',
                     size: 40,
                   ),
@@ -212,5 +246,18 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _openRoad(RoadMapItem road) {
+    context.push('/road/${road.roadSegmentId}', extra: road);
+  }
+
+  void _recenter(LocationReading? location) {
+    if (location == null || !_mapReady) {
+      showCompanionMessage(context, '현재 위치를 확인하고 있어요.');
+      return;
+    }
+    _mapController.move(LatLng(location.latitude, location.longitude), 16);
+    showCompanionMessage(context, '현재 위치로 지도를 맞췄어요.');
   }
 }

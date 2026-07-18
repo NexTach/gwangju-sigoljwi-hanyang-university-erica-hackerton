@@ -16,7 +16,7 @@ publish_to: "none"
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.0+1
+version: 0.1.3+2005
 
 environment:
   sdk: ^3.12.2
@@ -42,6 +42,7 @@ dependencies:
   road_dna_design:
     path: ../../packages/road_dna_design
   sensors_plus: ^7.1.0
+  share_plus: ^13.2.1
   shared_preferences: ^2.5.5
   uuid: ^4.5.2
 
@@ -65,6 +66,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/brand/google-g.png
+    - assets/brand/kakao-login-large-wide.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

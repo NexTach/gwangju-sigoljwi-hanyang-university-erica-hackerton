@@ -37,12 +37,10 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
         child: Stack(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(28, 18, 28, 24),
+              padding: const EdgeInsets.fromLTRB(28, 22, 28, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _BackLink(onTap: _goBack),
-                  const SizedBox(height: 14),
                   Text(
                     '커뮤니티',
                     style: Theme.of(
@@ -142,14 +140,6 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
       ),
     );
   }
-
-  void _goBack() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/home');
-    }
-  }
 }
 
 class _CommunitySummary extends StatelessWidget {
@@ -162,14 +152,14 @@ class _CommunitySummary extends StatelessWidget {
     child: const Row(
       children: [
         Expanded(
-          child: _SummaryMetric(label: '이번 주 제보', value: '1,248'),
+          child: _SummaryMetric(label: '이번 주 제보', value: '18'),
         ),
         _SummaryDivider(),
         Expanded(
           child: _SummaryMetric(
             color: CompanionColors.green,
             label: '함께 확인됨',
-            value: '312',
+            value: '12',
           ),
         ),
         _SummaryDivider(),
@@ -385,42 +375,4 @@ class _CommunityPostCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _BackLink extends StatelessWidget {
-  const _BackLink({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: '돌아가기',
-    child: InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: const Padding(
-        padding: EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: CompanionColors.coral,
-              size: 18,
-            ),
-            SizedBox(width: 3),
-            Text(
-              '돌아가기',
-              style: TextStyle(
-                color: CompanionColors.coral,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }

@@ -79,17 +79,19 @@ class CompanionPrimaryButton extends StatelessWidget {
     width: double.infinity,
     child: FilledButton(
       onPressed: loading ? null : onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: outlined ? Colors.transparent : backgroundColor,
-        disabledBackgroundColor: CompanionColors.creamLine,
-        foregroundColor: foregroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 22),
-        shape: StadiumBorder(
-          side: outlined
-              ? const BorderSide(color: CompanionColors.creamLine, width: 1.5)
-              : BorderSide.none,
+      style: companionButtonStyle(
+        FilledButton.styleFrom(
+          backgroundColor: outlined ? Colors.transparent : backgroundColor,
+          disabledBackgroundColor: CompanionColors.creamLine,
+          foregroundColor: foregroundColor,
+          padding: const EdgeInsets.symmetric(horizontal: 22),
+          shape: StadiumBorder(
+            side: outlined
+                ? const BorderSide(color: CompanionColors.creamLine, width: 1.5)
+                : BorderSide.none,
+          ),
+          textStyle: Theme.of(context).textTheme.labelLarge,
         ),
-        textStyle: Theme.of(context).textTheme.labelLarge,
       ),
       child: loading
           ? SizedBox.square(
@@ -141,12 +143,14 @@ class CompanionIconButton extends StatelessWidget {
       child: IconButton.filled(
         icon: Icon(icon, size: size * 0.43),
         onPressed: onPressed,
-        style: IconButton.styleFrom(
-          backgroundColor: backgroundColor,
-          disabledBackgroundColor: CompanionColors.creamMuted,
-          foregroundColor: foregroundColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(size * 0.33),
+        style: companionButtonStyle(
+          IconButton.styleFrom(
+            backgroundColor: backgroundColor,
+            disabledBackgroundColor: CompanionColors.creamMuted,
+            foregroundColor: foregroundColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(size * 0.33),
+            ),
           ),
         ),
         tooltip: semanticLabel,
@@ -172,13 +176,15 @@ class CompanionBackLink extends StatelessWidget {
       icon: const Icon(Icons.chevron_left_rounded, size: 20),
       label: Text(label),
       onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: CompanionColors.coralAction,
-        minimumSize: const Size(44, 44),
-        padding: EdgeInsets.zero,
-        textStyle: Theme.of(
-          context,
-        ).textTheme.labelLarge?.copyWith(color: CompanionColors.coralAction),
+      style: companionButtonStyle(
+        TextButton.styleFrom(
+          foregroundColor: CompanionColors.coralAction,
+          minimumSize: const Size(44, 44),
+          padding: EdgeInsets.zero,
+          textStyle: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: CompanionColors.coralAction),
+        ),
       ),
     ),
   );
@@ -247,10 +253,165 @@ class CompanionScreenHeader extends StatelessWidget {
 
 enum CompanionTab { nearby, community, home, reports, profile }
 
-class CompanionBottomNav extends StatelessWidget {
-  const CompanionBottomNav({required this.current, super.key});
+const companionTabTransitionDuration = Duration(milliseconds: 260);
 
-  final CompanionTab current;
+class CompanionTabShell extends StatelessWidget {
+  const CompanionTabShell({
+    required this.branchNavigators,
+    required this.navigationShell,
+    super.key,
+  });
+
+  final List<Widget> branchNavigators;
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: _AnimatedBranchContainer(
+      currentIndex: navigationShell.currentIndex,
+      children: branchNavigators,
+    ),
+    bottomNavigationBar: CompanionBottomNav(
+      currentIndex: navigationShell.currentIndex,
+      onSelected: (index) {
+        if (index == navigationShell.currentIndex) return;
+        navigationShell.goBranch(index);
+      },
+    ),
+  );
+}
+
+class _AnimatedBranchContainer extends StatefulWidget {
+  const _AnimatedBranchContainer({
+    required this.children,
+    required this.currentIndex,
+  });
+
+  final List<Widget> children;
+  final int currentIndex;
+
+  @override
+  State<_AnimatedBranchContainer> createState() =>
+      _AnimatedBranchContainerState();
+}
+
+class _AnimatedBranchContainerState extends State<_AnimatedBranchContainer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final CurvedAnimation _curved;
+  int? _previousIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(
+          duration: companionTabTransitionDuration,
+          value: 1,
+          vsync: this,
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed && _previousIndex != null) {
+            setState(() => _previousIndex = null);
+          }
+        });
+    _curved = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.duration =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false
+        ? Duration.zero
+        : companionTabTransitionDuration;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedBranchContainer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentIndex == widget.currentIndex) return;
+    _previousIndex = oldWidget.currentIndex;
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _curved.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final previousIndex = _previousIndex;
+    final direction = previousIndex == null
+        ? 0.0
+        : (widget.currentIndex - previousIndex).sign.toDouble();
+    final branchOrder = [
+      for (final index in Iterable<int>.generate(widget.children.length))
+        if (index != widget.currentIndex) index,
+      widget.currentIndex,
+    ];
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        for (final index in branchOrder)
+          KeyedSubtree(
+            key: ValueKey('companion-branch-$index'),
+            child: Offstage(
+              offstage: index != widget.currentIndex && index != previousIndex,
+              child: SlideTransition(
+                position: index == widget.currentIndex && previousIndex != null
+                    ? Tween<Offset>(
+                        begin: Offset(direction * 0.045, 0),
+                        end: Offset.zero,
+                      ).animate(_curved)
+                    : index == previousIndex
+                    ? Tween<Offset>(
+                        begin: Offset.zero,
+                        end: Offset(direction * -0.045, 0),
+                      ).animate(_curved)
+                    : const AlwaysStoppedAnimation(Offset.zero),
+                child: FadeTransition(
+                  alwaysIncludeSemantics: index == widget.currentIndex,
+                  opacity: index == widget.currentIndex
+                      ? previousIndex == null
+                            ? const AlwaysStoppedAnimation(1)
+                            : _curved
+                      : index == previousIndex
+                      ? ReverseAnimation(_curved)
+                      : const AlwaysStoppedAnimation(0),
+                  child: ExcludeSemantics(
+                    excluding: index != widget.currentIndex,
+                    child: IgnorePointer(
+                      ignoring: index != widget.currentIndex,
+                      child: TickerMode(
+                        enabled:
+                            index == widget.currentIndex ||
+                            index == previousIndex,
+                        child: RepaintBoundary(child: widget.children[index]),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class CompanionBottomNav extends StatelessWidget {
+  const CompanionBottomNav({
+    required this.currentIndex,
+    required this.onSelected,
+    super.key,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -262,53 +423,71 @@ class CompanionBottomNav extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: _CompanionNavItem(
-                active: current == CompanionTab.nearby,
-                icon: Icons.auto_awesome_rounded,
-                label: '주변',
-                onTap: () => context.go('/nearby'),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = constraints.maxWidth / CompanionTab.values.length;
+            final reduceMotion =
+                MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+            return SizedBox(
+              height: 64,
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
+                    key: const ValueKey('companion-nav-indicator'),
+                    curve: Curves.easeOutCubic,
+                    duration: reduceMotion
+                        ? Duration.zero
+                        : companionTabTransitionDuration,
+                    height: 40,
+                    left: itemWidth * currentIndex + (itemWidth - 46) / 2,
+                    top: 1,
+                    width: 46,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.all(Radius.circular(14)),
+                        color: CompanionColors.coral,
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      for (final (index, tab) in CompanionTab.values.indexed)
+                        Expanded(
+                          child: _CompanionNavItem(
+                            active: currentIndex == index,
+                            icon: tab.icon,
+                            label: tab.label,
+                            onTap: () => onSelected(index),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            Expanded(
-              child: _CompanionNavItem(
-                active: current == CompanionTab.community,
-                icon: Icons.groups_outlined,
-                label: '커뮤니티',
-                onTap: () => context.go('/community'),
-              ),
-            ),
-            Expanded(
-              child: _CompanionNavItem(
-                active: current == CompanionTab.home,
-                icon: Icons.home_rounded,
-                label: '홈',
-                onTap: () => context.go('/home'),
-              ),
-            ),
-            Expanded(
-              child: _CompanionNavItem(
-                active: current == CompanionTab.reports,
-                icon: Icons.show_chart_rounded,
-                label: '리포트',
-                onTap: () => context.go('/reports'),
-              ),
-            ),
-            Expanded(
-              child: _CompanionNavItem(
-                active: current == CompanionTab.profile,
-                icon: Icons.person_outline_rounded,
-                label: '프로필',
-                onTap: () => context.go('/profile'),
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     ),
   );
+}
+
+extension on CompanionTab {
+  IconData get icon => switch (this) {
+    CompanionTab.nearby => Icons.auto_awesome_rounded,
+    CompanionTab.community => Icons.groups_outlined,
+    CompanionTab.home => Icons.home_rounded,
+    CompanionTab.reports => Icons.show_chart_rounded,
+    CompanionTab.profile => Icons.person_outline_rounded,
+  };
+
+  String get label => switch (this) {
+    CompanionTab.nearby => '주변',
+    CompanionTab.community => '커뮤니티',
+    CompanionTab.home => '홈',
+    CompanionTab.reports => '리포트',
+    CompanionTab.profile => '프로필',
+  };
 }
 
 class _CompanionNavItem extends StatelessWidget {
@@ -325,47 +504,76 @@ class _CompanionNavItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: active,
-    label: label,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              alignment: Alignment.center,
-              curve: Curves.easeOutCubic,
-              duration: const Duration(milliseconds: 180),
-              height: active ? 40 : 30,
-              width: active ? 44 : 34,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: active ? CompanionColors.coral : Colors.transparent,
-              ),
-              child: Icon(
-                icon,
-                color: active ? CompanionColors.white : CompanionColors.muted,
-                size: active ? 20 : 19,
-              ),
+  Widget build(BuildContext context) {
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final iconDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 220);
+    final labelDuration = reduceMotion
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+
+    return Semantics(
+      button: true,
+      container: true,
+      excludeSemantics: true,
+      selected: active,
+      label: '$label 탭',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 40,
+                  width: 46,
+                  child: Center(
+                    child: AnimatedScale(
+                      curve: Curves.easeOutBack,
+                      duration: iconDuration,
+                      scale: active ? 1.08 : 1,
+                      child: AnimatedRotation(
+                        curve: Curves.easeOutCubic,
+                        duration: iconDuration,
+                        turns: active ? 0 : -0.015,
+                        child: Icon(
+                          icon,
+                          color: active
+                              ? CompanionColors.white
+                              : CompanionColors.muted,
+                          size: active ? 20 : 19,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                AnimatedDefaultTextStyle(
+                  curve: Curves.easeOutCubic,
+                  duration: labelDuration,
+                  style:
+                      Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: active
+                            ? CompanionColors.ink
+                            : CompanionColors.muted,
+                        fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                      ) ??
+                      const TextStyle(),
+                  child: Text(label, maxLines: 1),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: active ? CompanionColors.ink : CompanionColors.muted,
-                fontWeight: active ? FontWeight.w800 : FontWeight.w500,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class CompanionTag extends StatelessWidget {

@@ -35,12 +35,16 @@ class _RoadDetailScreenState extends ConsumerState<RoadDetailScreen> {
     final isDemoRoad = roadSegmentId.startsWith('demo-');
     final detail = isDemoRoad ? null : detailState.value;
     final seedRoad = isDemoRoad ? null : widget.seed;
-    final wheelchairScore = detail?.scores
-        .where((score) => score.movementType == MovementType.wheelchair)
+    final movement =
+        seedRoad?.movementType ??
+        ref.watch(trackingProvider).movementType ??
+        ref.watch(demoProfileProvider).movementType;
+    final movementScore = detail?.scores
+        .where((score) => score.movementType == movement)
         .firstOrNull;
     final demoMetrics = _demoMetrics(roadSegmentId);
     final score =
-        demoMetrics?.score ?? seedRoad?.score ?? wheelchairScore?.score ?? 65;
+        demoMetrics?.score ?? seedRoad?.score ?? movementScore?.score ?? 65;
     final eventCount =
         demoMetrics?.eventCount ??
         detail?.eventCount ??
@@ -48,7 +52,7 @@ class _RoadDetailScreenState extends ConsumerState<RoadDetailScreen> {
         (score < 60 ? 5 : 12);
     final confidence =
         demoMetrics?.confidence ??
-        wheelchairScore?.confidence ??
+        movementScore?.confidence ??
         seedRoad?.confidence ??
         0.65;
     final roadName =
@@ -56,7 +60,7 @@ class _RoadDetailScreenState extends ConsumerState<RoadDetailScreen> {
         detail?.roadName ??
         seedRoad?.roadName ??
         widget.fallbackName ??
-        '오크가 & 3번길 구간';
+        '반룡로 구간';
     final isBarrier = score < 60;
     final needsCaution = score < 75;
     final scoreColor = isBarrier
@@ -130,7 +134,7 @@ class _RoadDetailScreenState extends ConsumerState<RoadDetailScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '휠체어 기준 · ${needsCaution ? '반복적인 충격 감지' : '안정적인 노면 감지'}',
+                                  '${movement.label} 기준 · ${needsCaution ? '반복적인 충격 감지' : '안정적인 노면 감지'}',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -313,6 +317,8 @@ class _RoadDetailScreenState extends ConsumerState<RoadDetailScreen> {
       'movement': movement.apiName,
       if (needsCaution) 'avoidRoad': widget.roadSegmentId,
       if (needsCaution) 'avoidName': roadName,
+      if (!needsCaution) 'targetRoad': widget.roadSegmentId,
+      if (!needsCaution) 'targetName': roadName,
     };
     context.go(
       Uri(path: '/routes', queryParameters: queryParameters).toString(),

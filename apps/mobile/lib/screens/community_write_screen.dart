@@ -41,15 +41,17 @@ class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
               const Spacer(),
               FilledButton(
                 onPressed: _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: CompanionColors.coral,
-                  foregroundColor: CompanionColors.white,
-                  minimumSize: const Size(72, 40),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  shape: const StadiumBorder(),
-                  textStyle: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+                style: companionButtonStyle(
+                  FilledButton.styleFrom(
+                    backgroundColor: CompanionColors.coral,
+                    foregroundColor: CompanionColors.white,
+                    minimumSize: const Size(72, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: const StadiumBorder(),
+                    textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
                 child: const Text('등록'),
               ),
@@ -74,7 +76,7 @@ class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
             onTap: () => showCompanionMessage(context, '현재 위치를 사용하고 있어요.'),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             radius: 20,
-            semanticLabel: '현재 위치 광주 북구 용봉동 오크가 3번길',
+            semanticLabel: '현재 위치 광주 북구 용봉동 반룡로',
             child: Row(
               children: [
                 const Icon(
@@ -96,7 +98,7 @@ class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
                       ),
                       const SizedBox(height: 1),
                       Text(
-                        '광주 북구 용봉동 · 오크가 3번길',
+                        '광주 북구 용봉동 · 반룡로',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],

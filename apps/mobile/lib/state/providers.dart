@@ -10,6 +10,7 @@ import '../services/contribution_store.dart';
 import '../services/identity_service.dart';
 import '../services/location_service.dart';
 import '../services/motion_sensor_service.dart';
+import '../ui/profile_preferences_state.dart';
 
 final appConfigProvider = Provider<AppConfig>(
   (ref) => AppConfig.fromEnvironment(),
@@ -34,7 +35,11 @@ final motionSensorServiceProvider = Provider<MotionSensorService>((ref) {
 });
 
 final apiProvider = Provider<RoadDnaApi>(
-  (ref) => RoadDnaApi(ref.watch(appConfigProvider)),
+  (ref) => RoadDnaApi(
+    ref.watch(appConfigProvider),
+    allowAnonymousContributions: () =>
+        ref.read(profilePreferencesProvider).shareAnonymousContributions,
+  ),
 );
 
 final calibrationStoreProvider = Provider<CalibrationStore>(

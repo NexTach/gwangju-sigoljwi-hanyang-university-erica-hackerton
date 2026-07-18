@@ -15,6 +15,7 @@ import 'screens/nickname_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/permission_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/profile_settings_screens.dart';
 import 'screens/road_detail_screen.dart';
 import 'screens/route_comparison_screen.dart';
 import 'screens/sensor_analysis_screen.dart';
@@ -23,6 +24,7 @@ import 'screens/terms_screen.dart';
 import 'screens/tracking_screen.dart';
 import 'screens/walk_reports_screen.dart';
 import 'ui/companion_theme.dart';
+import 'ui/companion_widgets.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -50,22 +52,55 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NicknameScreen(),
         path: '/nickname',
       ),
-      GoRoute(builder: (context, state) => const HomeScreen(), path: '/home'),
-      GoRoute(
-        builder: (context, state) => const NearbyScreen(),
-        path: '/nearby',
-      ),
-      GoRoute(
-        builder: (context, state) => const ProfileScreen(),
-        path: '/profile',
-      ),
-      GoRoute(
-        builder: (context, state) => const WalkReportsScreen(),
-        path: '/reports',
-      ),
-      GoRoute(
-        builder: (context, state) => const CommunityScreen(),
-        path: '/community',
+      StatefulShellRoute(
+        builder: (context, state, navigationShell) => navigationShell,
+        navigatorContainerBuilder:
+            (context, navigationShell, branchNavigators) => CompanionTabShell(
+              branchNavigators: branchNavigators,
+              navigationShell: navigationShell,
+            ),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                builder: (context, state) => const NearbyScreen(),
+                path: '/nearby',
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                builder: (context, state) => const CommunityScreen(),
+                path: '/community',
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                builder: (context, state) => const HomeScreen(),
+                path: '/home',
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                builder: (context, state) => const WalkReportsScreen(),
+                path: '/reports',
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                builder: (context, state) => const ProfileScreen(),
+                path: '/profile',
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         builder: (context, state) => const CommunityWriteScreen(),
@@ -92,6 +127,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/sensor',
       ),
       GoRoute(
+        builder: (context, state) => const ProfileEditScreen(),
+        path: '/profile/edit',
+      ),
+      GoRoute(
+        builder: (context, state) => const AccessibilitySettingsScreen(),
+        path: '/profile/accessibility',
+      ),
+      GoRoute(
+        builder: (context, state) => const NotificationSettingsScreen(),
+        path: '/profile/notifications',
+      ),
+      GoRoute(
+        builder: (context, state) => const PrivacyTermsScreen(),
+        path: '/profile/privacy',
+      ),
+      GoRoute(
+        builder: (context, state) => const SupportScreen(),
+        path: '/profile/support',
+      ),
+      GoRoute(
+        builder: (context, state) => const AppInfoScreen(),
+        path: '/profile/about',
+      ),
+      GoRoute(
         builder: (context, state) {
           final value = state.uri.queryParameters['movement'];
           final movement = MovementType.values.firstWhere(
@@ -102,6 +161,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             avoidedRoadName: state.uri.queryParameters['avoidName'],
             avoidedRoadSegmentId: state.uri.queryParameters['avoidRoad'],
             initialMovement: movement,
+            targetRoadName: state.uri.queryParameters['targetName'],
+            targetRoadSegmentId: state.uri.queryParameters['targetRoad'],
           );
         },
         path: '/routes',

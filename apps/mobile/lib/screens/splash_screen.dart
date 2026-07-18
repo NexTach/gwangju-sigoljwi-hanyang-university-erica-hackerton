@@ -9,6 +9,7 @@ import '../ui/brand_mark.dart';
 import '../ui/companion_theme.dart';
 import '../ui/companion_widgets.dart';
 import '../ui/demo_profile_state.dart';
+import '../ui/profile_preferences_state.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -29,11 +30,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _bootstrap() async {
     final startedAt = DateTime.now();
     try {
-      final results = await Future.wait<Object>([
+      final results = await Future.wait<Object?>([
         ref.read(anonymousIdentityProvider.future),
         ref.read(demoProfileProvider.notifier).restore(),
+        ref.read(profilePreferencesProvider.notifier).restore(),
       ]);
-      final onboardingCompleted = results.last as bool;
+      final onboardingCompleted = results[1] as bool;
       final elapsed = DateTime.now().difference(startedAt);
       if (elapsed < const Duration(milliseconds: 850)) {
         await Future<void>.delayed(const Duration(milliseconds: 850) - elapsed);

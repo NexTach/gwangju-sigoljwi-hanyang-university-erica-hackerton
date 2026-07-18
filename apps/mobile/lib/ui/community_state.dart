@@ -16,6 +16,7 @@ class CommunityPost {
     required this.isInNeighborhood,
     required this.location,
     required this.name,
+    required this.roadSegmentId,
     required this.status,
     required this.time,
     this.situation,
@@ -29,6 +30,7 @@ class CommunityPost {
   final bool isInNeighborhood;
   final String location;
   final String name;
+  final String roadSegmentId;
   final CommunityPostStatus status;
   final String time;
   final String? situation;
@@ -43,6 +45,7 @@ class CommunityPost {
         isInNeighborhood: isInNeighborhood,
         location: location,
         name: name,
+        roadSegmentId: roadSegmentId,
         situation: situation,
         status: status ?? this.status,
         time: time,
@@ -63,8 +66,9 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
         id: 1,
         initial: '지',
         isInNeighborhood: true,
-        location: '오크가 3번길',
+        location: '반룡로',
         name: '지은님',
+        roadSegmentId: '10000000-0000-4000-8000-000000000132',
         status: CommunityPostStatus.needsConfirmation,
         time: '12분 전',
       ),
@@ -75,8 +79,9 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
         id: 2,
         initial: '민',
         isInNeighborhood: false,
-        location: '리버사이드길',
+        location: '고운로',
         name: '민준님',
+        roadSegmentId: '10000000-0000-4000-8000-000000000245',
         status: CommunityPostStatus.confirmed,
         time: '1시간 전',
       ),
@@ -87,8 +92,9 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
         id: 3,
         initial: '서',
         isInNeighborhood: true,
-        location: '용봉로',
+        location: '민주대로',
         name: '서연님',
+        roadSegmentId: '10000000-0000-4000-8000-000000000101',
         status: CommunityPostStatus.confirmed,
         time: '3시간 전',
       ),
@@ -99,8 +105,9 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
         id: 4,
         initial: '태',
         isInNeighborhood: false,
-        location: '메인가',
+        location: '설죽로202번길',
         name: '태호님',
+        roadSegmentId: '10000000-0000-4000-8000-000000000204',
         status: CommunityPostStatus.needsConfirmation,
         time: '어제',
       ),
@@ -127,8 +134,9 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
         id: _nextId++,
         initial: initial,
         isInNeighborhood: true,
-        location: '오크가 3번길',
+        location: '반룡로',
         name: author,
+        roadSegmentId: '10000000-0000-4000-8000-000000000132',
         situation: situation,
         status: isResolved
             ? CommunityPostStatus.confirmed
