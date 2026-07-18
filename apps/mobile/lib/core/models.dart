@@ -67,13 +67,19 @@ class LocationReading {
     required this.longitude,
     required this.recordedAt,
     required this.speed,
+    this.heading,
+    this.isMocked = false,
+    this.speedAccuracy,
   });
 
   final double accuracy;
+  final double? heading;
+  final bool isMocked;
   final double latitude;
   final double longitude;
   final DateTime recordedAt;
   final double speed;
+  final double? speedAccuracy;
 }
 
 @immutable
@@ -271,8 +277,7 @@ class RoadDetail {
     roadSegmentId: json['roadSegmentId'] as String,
     scores: (json['scores'] as List<dynamic>)
         .map(
-          (score) =>
-              MovementRoadScore.fromJson(score as Map<String, dynamic>),
+          (score) => MovementRoadScore.fromJson(score as Map<String, dynamic>),
         )
         .toList(growable: false),
     updatedAt: DateTime.parse(json['updatedAt'] as String),
@@ -333,9 +338,7 @@ class RouteComparison {
       RouteComparison(
         disclaimer: json['disclaimer'] as String,
         routes: (json['routes'] as List<dynamic>)
-            .map(
-              (route) => RouteOption.fromJson(route as Map<String, dynamic>),
-            )
+            .map((route) => RouteOption.fromJson(route as Map<String, dynamic>))
             .toList(growable: false),
       );
 

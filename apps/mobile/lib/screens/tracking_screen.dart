@@ -1,14 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
+import '../core/models.dart';
+import '../demo/yongbong_demo_data.dart';
 import '../state/tracking_controller.dart';
-import '../ui/companion_map.dart';
 import '../ui/companion_theme.dart';
 import '../ui/companion_widgets.dart';
 import '../ui/demo_profile_state.dart';
+import '../ui/profile_preferences_state.dart';
+import '../ui/road_map_view.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key});
@@ -18,7 +23,9 @@ class TrackingScreen extends ConsumerStatefulWidget {
 }
 
 class _TrackingScreenState extends ConsumerState<TrackingScreen> {
+  final MapController _mapController = MapController();
   bool _assistantPaused = false;
+  bool _mapReady = false;
   Timer? _clock;
 
   @override
@@ -32,6 +39,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   @override
   void dispose() {
     _clock?.cancel();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -55,6 +63,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   Widget build(BuildContext context) {
     final tracking = ref.watch(trackingProvider);
     final profile = ref.watch(demoProfileProvider);
+    final preferences = ref.watch(profilePreferencesProvider);
 
     ref.listen<int>(
       trackingProvider.select((state) => state.feedbackSequence),
@@ -120,10 +129,48 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         : DateTime.now().toUtc().difference(tracking.session!.startedAt);
     final minutes = elapsed.inMinutes;
     final seconds = elapsed.inSeconds.remainder(60);
-    final displayDistance = tracking.distanceMeters > 0
-        ? tracking.distanceMeters
-        : elapsed.inSeconds * 1.55;
+    final displayDistance = tracking.distanceMeters.isFinite
+        ? tracking.distanceMeters.clamp(0, double.infinity).toDouble()
+        : 0.0;
+    final mapDistanceLabel = displayDistance <= 0
+        ? 'GPS 준비 중'
+        : displayDistance < 1000
+        ? '${displayDistance.round()}m'
+        : '${(displayDistance / 1000).toStringAsFixed(1)}km';
+    final metricDistanceLabel = displayDistance < 1000
+        ? '${displayDistance.round()}m'
+        : '${(displayDistance / 1000).toStringAsFixed(1)}km';
     final latest = tracking.latestLocation;
+    final selectedRoute = tracking.selectedRoute;
+    final latestBarrier = tracking.barriers.lastOrNull;
+    final barrierRoad = latestBarrier?.roadSegmentId == null
+        ? null
+        : YongbongDemoData.roads(tracking.movementType ?? profile.movementType)
+              .where(
+                (road) => road.roadSegmentId == latestBarrier!.roadSegmentId,
+              )
+              .firstOrNull;
+    final barrierRoadId =
+        latestBarrier?.roadSegmentId ?? '10000000-0000-4000-8000-000000000132';
+    final barrierRoadName = barrierRoad?.roadName ?? '반룡로';
+    final navigationNotifications = preferences.allowsNotification(
+      ProfileNotificationChannel.navigation,
+    );
+    final impactNotifications = preferences.allowsNotification(
+      ProfileNotificationChannel.impact,
+    );
+    final guidanceTitle = !navigationNotifications
+        ? '이동 안내 알림을 꺼두었어요'
+        : tracking.acceptedEvents > 0 && impactNotifications
+        ? '새로운 이동 충격을 감지했어요'
+        : '40m 앞에 단차가 있어요';
+    final guidanceSubtitle = navigationNotifications
+        ? '더 편한 길로 안내해드릴까요?'
+        : '도로 분석과 경로 기록은 계속돼요';
+    final trace = [
+      for (final location in tracking.routeTrace)
+        LatLng(location.latitude, location.longitude),
+    ];
     final score = tracking.acceptedEvents == 0 ? 96 : 88;
 
     return PopScope(
@@ -143,10 +190,22 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     height: mapHeight,
                     child: Stack(
                       children: [
-                        const Positioned.fill(
-                          child: CompanionMapArtwork(
-                            height: double.infinity,
-                            style: CompanionMapStyle.tracking,
+                        Positioned.fill(
+                          child: RoadMapView(
+                            barriers: tracking.barriers,
+                            center: latest == null
+                                ? roadDnaFallbackCenter
+                                : LatLng(latest.latitude, latest.longitude),
+                            currentLocation: latest,
+                            followCurrentLocation: true,
+                            mapController: _mapController,
+                            onMapReady: () => _mapReady = true,
+                            routes: selectedRoute == null
+                                ? const []
+                                : [selectedRoute],
+                            selectedRoute: selectedRoute,
+                            trace: trace,
+                            traceColor: CompanionColors.coralAction,
                           ),
                         ),
                         Positioned(
@@ -162,8 +221,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                               CompanionTag(
                                 backgroundColor: CompanionColors.ink,
                                 foregroundColor: CompanionColors.white,
-                                label:
-                                    '${(displayDistance / 1000).toStringAsFixed(1)}km · $minutes분',
+                                label: '$mapDistanceLabel · $minutes분',
                                 icon: Icons.route_rounded,
                               ),
                             ],
@@ -200,12 +258,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                             offset: const Offset(0, 22),
                             child: CompanionIconButton(
                               icon: Icons.my_location_rounded,
-                              onPressed: () => showCompanionMessage(
-                                context,
-                                latest == null
-                                    ? 'GPS 신호를 확인하고 있어요.'
-                                    : '현재 위치를 중심으로 표시했어요.',
-                              ),
+                              onPressed: () => _recenter(latest),
                               semanticLabel: '현재 위치',
                               size: 48,
                             ),
@@ -277,8 +330,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                               children: [
                                 _TrackingMetric(
                                   icon: Icons.location_on_outlined,
-                                  label:
-                                      '${(displayDistance / 1000).toStringAsFixed(1)}km',
+                                  label: metricDistanceLabel,
                                 ),
                                 const _MetricDivider(),
                                 _TrackingMetric(
@@ -331,11 +383,13 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                                           : '산책 안내를 다시 시작했어요.',
                                     );
                                   },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: CompanionColors.ink,
-                                    textStyle: Theme.of(
-                                      context,
-                                    ).textTheme.labelMedium,
+                                  style: companionButtonStyle(
+                                    TextButton.styleFrom(
+                                      foregroundColor: CompanionColors.ink,
+                                      textStyle: Theme.of(
+                                        context,
+                                      ).textTheme.labelMedium,
+                                    ),
                                   ),
                                 ),
                                 TextButton.icon(
@@ -348,12 +402,14 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                                       tracking.status == TrackingStatus.active
                                       ? _stop
                                       : null,
-                                  style: TextButton.styleFrom(
-                                    foregroundColor:
-                                        CompanionColors.coralAction,
-                                    textStyle: Theme.of(
-                                      context,
-                                    ).textTheme.labelMedium,
+                                  style: companionButtonStyle(
+                                    TextButton.styleFrom(
+                                      foregroundColor:
+                                          CompanionColors.coralAction,
+                                      textStyle: Theme.of(
+                                        context,
+                                      ).textTheme.labelMedium,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -361,26 +417,37 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                             const SizedBox(height: 6),
                             CompanionCard(
                               color: CompanionColors.amberSoft,
-                              onTap: () => context.push(
-                                '/road/demo-132?name=오크가%20%26%203번길%20구간',
-                              ),
+                              onTap: () => navigationNotifications
+                                  ? context.push(
+                                      Uri(
+                                        path: '/road/$barrierRoadId',
+                                        queryParameters: {
+                                          'name': '$barrierRoadName 구간',
+                                        },
+                                      ).toString(),
+                                    )
+                                  : context.push('/profile/notifications'),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 15,
                                 vertical: 14,
                               ),
                               radius: 20,
-                              semanticLabel: '앞쪽 단차 상세 보기',
+                              semanticLabel: navigationNotifications
+                                  ? '앞쪽 단차 상세 보기'
+                                  : '이동 안내 알림 설정 열기',
                               child: Row(
                                 children: [
-                                  const DecoratedBox(
-                                    decoration: BoxDecoration(
+                                  DecoratedBox(
+                                    decoration: const BoxDecoration(
                                       color: CompanionColors.white,
                                       shape: BoxShape.circle,
                                     ),
                                     child: SizedBox.square(
                                       dimension: 38,
                                       child: Icon(
-                                        Icons.error_outline_rounded,
+                                        navigationNotifications
+                                            ? Icons.error_outline_rounded
+                                            : Icons.notifications_off_outlined,
                                         color: CompanionColors.amber,
                                         size: 19,
                                       ),
@@ -393,16 +460,14 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          tracking.acceptedEvents > 0
-                                              ? '새로운 이동 충격을 감지했어요'
-                                              : '40m 앞에 단차가 있어요',
+                                          guidanceTitle,
                                           style: Theme.of(
                                             context,
                                           ).textTheme.labelMedium,
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          '더 편한 길로 안내해드릴까요?',
+                                          guidanceSubtitle,
                                           style: Theme.of(
                                             context,
                                           ).textTheme.bodySmall,
@@ -430,6 +495,15 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         ),
       ),
     );
+  }
+
+  void _recenter(LocationReading? location) {
+    if (location == null || !_mapReady) {
+      showCompanionMessage(context, 'GPS 신호를 확인하고 있어요.');
+      return;
+    }
+    _mapController.move(LatLng(location.latitude, location.longitude), 17);
+    showCompanionMessage(context, '현재 위치를 중심으로 표시했어요.');
   }
 }
 

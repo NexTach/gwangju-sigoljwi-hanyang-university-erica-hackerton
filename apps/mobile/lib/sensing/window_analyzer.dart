@@ -4,20 +4,46 @@ import '../core/models.dart';
 import 'calibration.dart';
 
 class GravityFilter {
-  GravityFilter({this.alpha = 0.9});
+  GravityFilter({
+    this.maximumGap = const Duration(milliseconds: 250),
+    this.timeConstant = const Duration(milliseconds: 650),
+  });
 
-  final double alpha;
+  final Duration maximumGap;
+  final Duration timeConstant;
   double? _gravityX;
   double? _gravityY;
   double? _gravityZ;
+  DateTime? _previousAt;
 
   MotionSample filter(MotionSample sample) {
-    _gravityX ??= sample.x;
-    _gravityY ??= sample.y;
-    _gravityZ ??= sample.z;
+    final previousAt = _previousAt;
+    final elapsed = previousAt == null
+        ? Duration.zero
+        : sample.recordedAt.difference(previousAt);
+    if (elapsed <= Duration.zero || elapsed > maximumGap) {
+      _gravityX = sample.x;
+      _gravityY = sample.y;
+      _gravityZ = sample.z;
+      _previousAt = sample.recordedAt;
+      return MotionSample(
+        gyroX: sample.gyroX,
+        gyroY: sample.gyroY,
+        gyroZ: sample.gyroZ,
+        recordedAt: sample.recordedAt,
+        x: 0,
+        y: 0,
+        z: 0,
+      );
+    }
+    final seconds = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+    final timeConstantSeconds =
+        timeConstant.inMicroseconds / Duration.microsecondsPerSecond;
+    final alpha = math.exp(-seconds / timeConstantSeconds);
     _gravityX = alpha * _gravityX! + (1 - alpha) * sample.x;
     _gravityY = alpha * _gravityY! + (1 - alpha) * sample.y;
     _gravityZ = alpha * _gravityZ! + (1 - alpha) * sample.z;
+    _previousAt = sample.recordedAt;
     return MotionSample(
       gyroX: sample.gyroX,
       gyroY: sample.gyroY,
@@ -33,27 +59,43 @@ class GravityFilter {
     _gravityX = null;
     _gravityY = null;
     _gravityZ = null;
+    _previousAt = null;
   }
 }
 
 class SensorWindowAnalyzer {
   SensorWindowAnalyzer({
     required this.calibration,
-    this.minimumSamples = 20,
+    this.maximumSampleGap = const Duration(milliseconds: 160),
+    this.maximumSampleRateHz = 80,
+    this.minimumSampleRateHz = 18,
+    this.minimumSamples = 40,
     this.minimumPeakSeparation = const Duration(milliseconds: 120),
     this.windowDuration = const Duration(seconds: 2),
     GravityFilter? gravityFilter,
   }) : _gravityFilter = gravityFilter ?? GravityFilter();
 
   CalibrationSettings calibration;
+  final Duration maximumSampleGap;
+  final double maximumSampleRateHz;
+  final double minimumSampleRateHz;
   final int minimumSamples;
   final Duration minimumPeakSeparation;
   final Duration windowDuration;
   final GravityFilter _gravityFilter;
   final List<MotionSample> _samples = [];
+  DateTime? _lastRawSampleAt;
   DateTime? _windowStartedAt;
 
   ImpactCandidate? add(MotionSample rawSample) {
+    final lastRawSampleAt = _lastRawSampleAt;
+    if (lastRawSampleAt != null) {
+      final gap = rawSample.recordedAt.difference(lastRawSampleAt);
+      if (gap <= Duration.zero || gap > maximumSampleGap) {
+        _resetWindow();
+      }
+    }
+    _lastRawSampleAt = rawSample.recordedAt;
     final sample = _gravityFilter.filter(rawSample);
     _windowStartedAt ??= sample.recordedAt;
     _samples.add(sample);
@@ -65,7 +107,14 @@ class SensorWindowAnalyzer {
     final startedAt = _windowStartedAt!;
     _samples.clear();
     _windowStartedAt = null;
-    if (samples.length < minimumSamples) return null;
+    final duration = samples.last.recordedAt.difference(startedAt);
+    final seconds = duration.inMicroseconds / Duration.microsecondsPerSecond;
+    final sampleRate = seconds <= 0 ? 0 : (samples.length - 1) / seconds;
+    if (samples.length < minimumSamples ||
+        sampleRate < minimumSampleRateHz ||
+        sampleRate > maximumSampleRateHz) {
+      return null;
+    }
 
     final magnitudes = samples.map((sample) => sample.magnitude).toList();
     final gyros = samples.map((sample) => sample.gyroMagnitude).toList();
@@ -106,7 +155,7 @@ class SensorWindowAnalyzer {
         magnitudes.length;
 
     final features = SensorWindowFeatures(
-      duration: samples.last.recordedAt.difference(startedAt),
+      duration: duration,
       gyroRms: gyroRms,
       maxPeak: maxPeak,
       mean: mean,
@@ -152,7 +201,7 @@ class SensorWindowAnalyzer {
 
     return ImpactCandidate(
       anomalyScore: severity,
-      detectedAt: samples.last.recordedAt,
+      detectedAt: samples[magnitudes.indexOf(maxPeak)].recordedAt,
       features: features,
       impactLevel: impactLevel,
       isPossibleDrop: isPossibleDrop,
@@ -161,6 +210,11 @@ class SensorWindowAnalyzer {
   }
 
   void reset() {
+    _lastRawSampleAt = null;
+    _resetWindow();
+  }
+
+  void _resetWindow() {
     _samples.clear();
     _windowStartedAt = null;
     _gravityFilter.reset();

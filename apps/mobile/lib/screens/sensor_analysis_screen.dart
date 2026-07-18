@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../demo/yongbong_demo_data.dart';
 import '../state/providers.dart';
 import '../state/tracking_controller.dart';
 import '../ui/companion_theme.dart';
@@ -26,7 +27,8 @@ class SensorAnalysisScreen extends ConsumerWidget {
     final severity =
         candidate?.severity ??
         ((preview?.linearMagnitude ?? 0) / 12).clamp(0.08, 0.82);
-    final location = tracking.latestLocation;
+    final location =
+        tracking.latestLocation ?? ref.watch(currentLocationProvider).value;
     final now = candidate?.detectedAt ?? DateTime.now();
     final recordedTime =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
@@ -256,9 +258,17 @@ class SensorAnalysisScreen extends ConsumerWidget {
                     label: 'GPS 좌표',
                     value: location == null
                         ? config.demoMode
-                              ? '35.1771, 126.9107'
+                              ? '${YongbongDemoData.centerLatitude.toStringAsFixed(4)}, '
+                                    '${YongbongDemoData.centerLongitude.toStringAsFixed(4)}'
                               : '—'
                         : '${location.latitude.toStringAsFixed(4)}, ${location.longitude.toStringAsFixed(4)}',
+                  ),
+                  const SizedBox(height: 8),
+                  _SensorMetadataRow(
+                    label: 'GPS 정확도',
+                    value: location == null
+                        ? '—'
+                        : '±${location.accuracy.toStringAsFixed(1)}m',
                   ),
                   const SizedBox(height: 8),
                   _SensorMetadataRow(label: '기록 시각', value: recordedTime),
