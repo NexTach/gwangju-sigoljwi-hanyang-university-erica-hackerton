@@ -30,7 +30,12 @@ abstract final class RdTheme {
         secondary: colors.mapGood,
         surface: colors.surface,
       ),
+      focusColor: colors.focus.withValues(alpha: 0.2),
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
       scaffoldBackgroundColor: colors.canvas,
+      splashColor: Colors.transparent,
+      splashFactory: NoSplash.splashFactory,
       useMaterial3: true,
     );
 

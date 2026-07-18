@@ -6,6 +6,16 @@ enum RdButtonTone { primary, secondary, danger, ghost }
 
 enum RdButtonSize { small, medium, large }
 
+ButtonStyle _withoutTapFeedback(ButtonStyle style, Color focusColor) =>
+    style.copyWith(
+      overlayColor: WidgetStateProperty.resolveWith<Color?>(
+        (states) => states.contains(WidgetState.focused)
+            ? focusColor.withValues(alpha: 0.2)
+            : Colors.transparent,
+      ),
+      splashFactory: NoSplash.splashFactory,
+    );
+
 class RdButton extends StatelessWidget {
   const RdButton({
     required this.label,
@@ -61,26 +71,29 @@ class RdButton extends StatelessWidget {
         width: fullWidth ? double.infinity : null,
         child: FilledButton(
           onPressed: loading ? null : onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: background,
-            disabledBackgroundColor: disabledBackground,
-            disabledForegroundColor: disabledForeground,
-            foregroundColor: foreground,
-            elevation: 0,
-            shadowColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            padding: EdgeInsets.symmetric(
-              horizontal: size == RdButtonSize.large
-                  ? RdSpacing.x6
-                  : RdSpacing.x5,
+          style: _withoutTapFeedback(
+            FilledButton.styleFrom(
+              backgroundColor: background,
+              disabledBackgroundColor: disabledBackground,
+              disabledForegroundColor: disabledForeground,
+              foregroundColor: foreground,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              padding: EdgeInsets.symmetric(
+                horizontal: size == RdButtonSize.large
+                    ? RdSpacing.x6
+                    : RdSpacing.x5,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(radius),
+                side: tone == RdButtonTone.secondary
+                    ? BorderSide(color: colors.border)
+                    : BorderSide.none,
+              ),
+              textStyle: Theme.of(context).textTheme.labelLarge,
             ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(radius),
-              side: tone == RdButtonTone.secondary
-                  ? BorderSide(color: colors.border)
-                  : BorderSide.none,
-            ),
-            textStyle: Theme.of(context).textTheme.labelLarge,
+            colors.focus,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -123,14 +136,18 @@ class RdIconButton extends StatelessWidget {
   final String semanticLabel;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    color: color ?? context.rdColors.contentSecondary,
-    constraints: const BoxConstraints(
-      minHeight: RdSize.touchTarget,
-      minWidth: RdSize.touchTarget,
-    ),
-    onPressed: onPressed,
-    icon: icon,
-    tooltip: semanticLabel,
-  );
+  Widget build(BuildContext context) {
+    final colors = context.rdColors;
+    return IconButton(
+      color: color ?? colors.contentSecondary,
+      constraints: const BoxConstraints(
+        minHeight: RdSize.touchTarget,
+        minWidth: RdSize.touchTarget,
+      ),
+      onPressed: onPressed,
+      icon: icon,
+      style: _withoutTapFeedback(const ButtonStyle(), colors.focus),
+      tooltip: semanticLabel,
+    );
+  }
 }
