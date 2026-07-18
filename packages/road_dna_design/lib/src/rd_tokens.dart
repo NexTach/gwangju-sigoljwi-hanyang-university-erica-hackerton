@@ -35,6 +35,7 @@ abstract final class RdPalette {
   static const gray400 = Color(0xFFB0B8C1);
   static const gray500 = Color(0xFF8B95A1);
   static const gray600 = Color(0xFF6B7684);
+  static const gray650 = Color(0xFF5C6673);
   static const gray700 = Color(0xFF4E5968);
   static const gray800 = Color(0xFF333D4B);
   static const gray900 = Color(0xFF191F28);
@@ -87,7 +88,7 @@ class RdSemanticColors extends ThemeExtension<RdSemanticColors> {
         contentInverse: RdPalette.white,
         contentPrimary: RdPalette.gray900,
         contentSecondary: RdPalette.gray700,
-        contentTertiary: RdPalette.gray500,
+        contentTertiary: RdPalette.gray650,
         focus: RdPalette.cobalt500,
         mapCaution: RdPalette.amber500,
         mapGood: RdPalette.cyan500,

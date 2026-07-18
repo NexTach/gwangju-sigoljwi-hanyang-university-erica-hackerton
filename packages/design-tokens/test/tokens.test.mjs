@@ -65,6 +65,13 @@ test("primary text meets WCAG AA in both themes", () => {
   );
 });
 
+test("tertiary text remains readable on light and dark surfaces", () => {
+  for (const theme of Object.values(tokens.semantic)) {
+    assert.ok(contrast(theme.contentTertiary, theme.surface) >= 4.5);
+    assert.ok(contrast(theme.contentTertiary, theme.surfaceSubtle) >= 4.5);
+  }
+});
+
 test("primary action supports readable inverse text", () => {
   assert.ok(
     contrast(

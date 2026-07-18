@@ -43,9 +43,13 @@ class RdButton extends StatelessWidget {
         colors.actionSecondary,
         colors.actionSecondaryContent,
       ),
-      RdButtonTone.danger => (colors.statusCritical, RdPalette.white),
+      RdButtonTone.danger => (colors.statusCritical, colors.contentInverse),
       RdButtonTone.ghost => (Colors.transparent, colors.contentSecondary),
     };
+    final disabledBackground = tone == RdButtonTone.ghost
+        ? Colors.transparent
+        : colors.surfaceSubtle;
+    final disabledForeground = colors.contentTertiary;
     final radius = size == RdButtonSize.large ? RdRadius.lg : RdRadius.md;
 
     final button = Semantics(
@@ -59,8 +63,8 @@ class RdButton extends StatelessWidget {
           onPressed: loading ? null : onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: background,
-            disabledBackgroundColor: background.withValues(alpha: 0.42),
-            disabledForegroundColor: foreground,
+            disabledBackgroundColor: disabledBackground,
+            disabledForegroundColor: disabledForeground,
             foregroundColor: foreground,
             padding: EdgeInsets.symmetric(
               horizontal: size == RdButtonSize.large
@@ -79,7 +83,7 @@ class RdButton extends StatelessWidget {
                 SizedBox.square(
                   dimension: 20,
                   child: CircularProgressIndicator(
-                    color: foreground,
+                    color: disabledForeground,
                     strokeWidth: 2,
                   ),
                 )

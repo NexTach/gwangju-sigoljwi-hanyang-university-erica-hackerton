@@ -8,6 +8,31 @@ Widget _wrap(Widget child) => MaterialApp(
 );
 
 void main() {
+  test('light typography and tertiary text keep readable semantic colors', () {
+    final theme = RdTheme.light();
+    final colors = theme.extension<RdSemanticColors>()!;
+    final primaryStyles = [
+      theme.textTheme.bodyLarge,
+      theme.textTheme.bodyMedium,
+      theme.textTheme.bodySmall,
+      theme.textTheme.displayLarge,
+      theme.textTheme.displayMedium,
+      theme.textTheme.headlineLarge,
+      theme.textTheme.headlineMedium,
+      theme.textTheme.headlineSmall,
+      theme.textTheme.labelLarge,
+      theme.textTheme.labelMedium,
+    ];
+
+    for (final style in primaryStyles) {
+      expect(style?.color, colors.contentPrimary);
+    }
+    expect(
+      _contrastRatio(colors.contentTertiary, colors.surfaceSubtle),
+      greaterThanOrEqualTo(4.5),
+    );
+  });
+
   test('score grade keeps missing data unknown', () {
     expect(rdRoadGrade(null), RdRoadGrade.unknown);
     expect(rdRoadGrade(100), RdRoadGrade.good);
@@ -19,9 +44,16 @@ void main() {
       _wrap(const RdButton(label: '저장', loading: true, onPressed: null)),
     );
 
+    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+    final colors = RdTheme.light().extension<RdSemanticColors>()!;
+    expect(button.onPressed, isNull);
     expect(
-      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNull,
+      button.style?.backgroundColor?.resolve({WidgetState.disabled}),
+      colors.surfaceSubtle,
+    );
+    expect(
+      button.style?.foregroundColor?.resolve({WidgetState.disabled}),
+      colors.contentTertiary,
     );
   });
 
@@ -30,4 +62,16 @@ void main() {
     expect(find.bySemanticsLabel('Road DNA 점수: 데이터 없음'), findsOneWidget);
     expect(find.text('100'), findsNothing);
   });
+}
+
+double _contrastRatio(Color foreground, Color background) {
+  final foregroundLuminance = foreground.computeLuminance();
+  final backgroundLuminance = background.computeLuminance();
+  final lighter = foregroundLuminance > backgroundLuminance
+      ? foregroundLuminance
+      : backgroundLuminance;
+  final darker = foregroundLuminance > backgroundLuminance
+      ? backgroundLuminance
+      : foregroundLuminance;
+  return (lighter + 0.05) / (darker + 0.05);
 }

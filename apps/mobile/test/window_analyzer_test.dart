@@ -13,9 +13,7 @@ MotionSample sampleAt(
   gyroX: gyro,
   gyroY: 0,
   gyroZ: 0,
-  recordedAt: DateTime.utc(2026, 7, 18).add(
-    Duration(milliseconds: index * 40),
-  ),
+  recordedAt: DateTime.utc(2026, 7, 18).add(Duration(milliseconds: index * 40)),
   x: x,
   y: y,
   z: z,
@@ -35,24 +33,60 @@ void main() {
       expect(candidate, isNull);
     });
 
-    test('extracts a repeated high-impact candidate from a two-second window', () {
+    test('rejects a single ordinary handling movement', () {
       final analyzer = SensorWindowAnalyzer(
         calibration: const CalibrationSettings.exploratory(),
       );
       ImpactCandidate? candidate;
       for (var index = 0; index <= 50; index += 1) {
-        final impact = index == 32 || index == 37 || index == 42 ? 8.0 : 0.0;
         candidate = analyzer.add(
-          sampleAt(index, gyro: impact > 0 ? 2.4 : 0.2, x: impact),
+          sampleAt(
+            index,
+            gyro: index == 34 ? 1.2 : 0,
+            x: index == 34 ? 2.8 : 0,
+          ),
         );
       }
 
-      expect(candidate, isNotNull);
-      expect(candidate!.impactLevel, ImpactLevel.high);
-      expect(candidate.features.peakCount, greaterThanOrEqualTo(2));
-      expect(candidate.features.gyroRms, greaterThan(0));
-      expect(candidate.isPossibleDrop, isFalse);
+      expect(candidate, isNull);
     });
+
+    test('rejects repeated low-energy handling motion', () {
+      final analyzer = SensorWindowAnalyzer(
+        calibration: const CalibrationSettings.exploratory(),
+      );
+      ImpactCandidate? candidate;
+      for (var index = 0; index <= 50; index += 1) {
+        final movement = index == 28 || index == 38 ? 2.1 : 0.0;
+        candidate = analyzer.add(
+          sampleAt(index, gyro: movement > 0 ? 1.4 : 0, x: movement),
+        );
+      }
+
+      expect(candidate, isNull);
+    });
+
+    test(
+      'extracts a repeated high-impact candidate from a two-second window',
+      () {
+        final analyzer = SensorWindowAnalyzer(
+          calibration: const CalibrationSettings.exploratory(),
+        );
+        ImpactCandidate? candidate;
+        for (var index = 0; index <= 50; index += 1) {
+          final impact = index == 32 || index == 37 || index == 42 ? 8.0 : 0.0;
+          candidate = analyzer.add(
+            sampleAt(index, gyro: impact > 0 ? 2.4 : 0.2, x: impact),
+          );
+        }
+
+        expect(candidate, isNotNull);
+        expect(candidate!.impactLevel, ImpactLevel.high);
+        expect(candidate.features.peakCount, greaterThanOrEqualTo(2));
+        expect(candidate.features.gyroRms, greaterThan(0));
+        expect(candidate.isPossibleDrop, isFalse);
+      },
+    );
 
     test('marks a single extreme peak as a possible phone drop', () {
       final analyzer = SensorWindowAnalyzer(
@@ -60,9 +94,7 @@ void main() {
       );
       ImpactCandidate? candidate;
       for (var index = 0; index <= 50; index += 1) {
-        candidate = analyzer.add(
-          sampleAt(index, x: index == 35 ? 35 : 0),
-        );
+        candidate = analyzer.add(sampleAt(index, x: index == 35 ? 35 : 0));
       }
 
       expect(candidate, isNotNull);

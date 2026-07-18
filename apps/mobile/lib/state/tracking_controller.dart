@@ -12,6 +12,12 @@ import 'providers.dart';
 
 enum TrackingStatus { idle, starting, active, stopping, completed, failure }
 
+bool isMotionAnalysisEligible(LocationReading? location) =>
+    location != null && location.speed >= 0.25;
+
+bool shouldSurfaceCandidateFeedback(String status) =>
+    status == 'ACCEPTED' || status == 'HELD_DROP_PATTERN';
+
 @immutable
 class DetectedBarrier {
   const DetectedBarrier({
@@ -108,6 +114,7 @@ class TrackingController extends Notifier<TrackingState> {
   final GravityFilter _telemetryGravityFilter = GravityFilter();
   LocationReading? _distanceAnchor;
   DateTime _lastTelemetryUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _wasMotionAnalysisEligible = false;
 
   @override
   TrackingState build() {
@@ -129,6 +136,7 @@ class TrackingController extends Notifier<TrackingState> {
     );
     _telemetryGravityFilter.reset();
     _lastTelemetryUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    _wasMotionAnalysisEligible = false;
     final locationService = ref.read(locationServiceProvider);
     MovementSession? session;
     try {
@@ -162,21 +170,23 @@ class TrackingController extends Notifier<TrackingState> {
           state = state.copyWith(errorMessage: 'GPS 신호가 잠시 끊겼어요.');
         },
       );
-      _motionSubscription = ref.read(motionSensorServiceProvider).watch().listen(
-        _onMotion,
-        onError: (Object error, StackTrace stackTrace) {
-          state = state.copyWith(
-            errorMessage: '이 기기에서 모션 센서를 읽을 수 없어요.',
+      _motionSubscription = ref
+          .read(motionSensorServiceProvider)
+          .watch()
+          .listen(
+            _onMotion,
+            onError: (Object error, StackTrace stackTrace) {
+              state = state.copyWith(errorMessage: '이 기기에서 모션 센서를 읽을 수 없어요.');
+            },
           );
-        },
-      );
       ref.invalidate(locationAccessProvider);
       return true;
     } catch (error) {
       if (session != null) {
-        await ref.read(apiProvider).endSession(session.sessionId).catchError(
-          (_) {},
-        );
+        await ref
+            .read(apiProvider)
+            .endSession(session.sessionId)
+            .catchError((_) {});
       }
       state = state.copyWith(
         errorMessage: _messageFor(error),
@@ -198,6 +208,7 @@ class TrackingController extends Notifier<TrackingState> {
     _motionSubscription = null;
     _analyzer?.reset();
     _telemetryGravityFilter.reset();
+    _wasMotionAnalysisEligible = false;
     try {
       await ref.read(apiProvider).endSession(session.sessionId);
       await ref
@@ -213,8 +224,7 @@ class TrackingController extends Notifier<TrackingState> {
       );
     } catch (error) {
       state = state.copyWith(
-        errorMessage:
-            '${_messageFor(error)} 측정은 기기에서 안전하게 종료했어요.',
+        errorMessage: '${_messageFor(error)} 측정은 기기에서 안전하게 종료했어요.',
         status: TrackingStatus.completed,
       );
     }
@@ -225,6 +235,7 @@ class TrackingController extends Notifier<TrackingState> {
     _analyzer?.reset();
     _telemetryGravityFilter.reset();
     _lastTelemetryUpdate = DateTime.fromMillisecondsSinceEpoch(0);
+    _wasMotionAnalysisEligible = false;
     state = const TrackingState.idle();
   }
 
@@ -268,10 +279,7 @@ class TrackingController extends Notifier<TrackingState> {
       if (delta <= 100) distance += delta;
     }
     _distanceAnchor = location;
-    state = state.copyWith(
-      distanceMeters: distance,
-      latestLocation: location,
-    );
+    state = state.copyWith(distanceMeters: distance, latestLocation: location);
   }
 
   void _onMotion(MotionSample sample) {
@@ -283,6 +291,13 @@ class TrackingController extends Notifier<TrackingState> {
       _lastTelemetryUpdate = now;
       state = state.copyWith(lastSensorMagnitude: linearSample.magnitude);
     }
+    final isEligible = isMotionAnalysisEligible(state.latestLocation);
+    if (!isEligible) {
+      if (_wasMotionAnalysisEligible) _analyzer?.reset();
+      _wasMotionAnalysisEligible = false;
+      return;
+    }
+    _wasMotionAnalysisEligible = true;
     final candidate = _analyzer?.add(sample);
     if (candidate != null) unawaited(_handleCandidate(candidate));
   }
@@ -292,10 +307,7 @@ class TrackingController extends Notifier<TrackingState> {
     final session = state.session;
     final movementType = state.movementType;
     if (location == null || session == null || movementType == null) {
-      state = state.copyWith(
-        heldEvents: state.heldEvents + 1,
-        lastCandidate: candidate,
-      );
+      state = state.copyWith(heldEvents: state.heldEvents + 1);
       return;
     }
     try {
@@ -309,6 +321,7 @@ class TrackingController extends Notifier<TrackingState> {
           );
       if (state.session?.sessionId != session.sessionId) return;
       final accepted = receipt.status == 'ACCEPTED';
+      final shouldSurface = shouldSurfaceCandidateFeedback(receipt.status);
       final barrier = DetectedBarrier(
         candidate: candidate,
         eventId: receipt.eventId,
@@ -318,15 +331,14 @@ class TrackingController extends Notifier<TrackingState> {
       state = state.copyWith(
         acceptedEvents: state.acceptedEvents + (accepted ? 1 : 0),
         barriers: accepted ? [...state.barriers, barrier] : state.barriers,
-        feedbackSequence: state.feedbackSequence + 1,
+        feedbackSequence: state.feedbackSequence + (shouldSurface ? 1 : 0),
         heldEvents: state.heldEvents + (accepted ? 0 : 1),
-        lastCandidate: candidate,
+        lastCandidate: shouldSurface ? candidate : state.lastCandidate,
       );
     } catch (error) {
       state = state.copyWith(
         errorMessage: _messageFor(error),
         heldEvents: state.heldEvents + 1,
-        lastCandidate: candidate,
       );
     }
   }
@@ -344,7 +356,6 @@ class TrackingController extends Notifier<TrackingState> {
   };
 }
 
-final trackingProvider =
-    NotifierProvider<TrackingController, TrackingState>(
-      TrackingController.new,
-    );
+final trackingProvider = NotifierProvider<TrackingController, TrackingState>(
+  TrackingController.new,
+);

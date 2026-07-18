@@ -22,7 +22,7 @@ abstract final class RdTheme {
       colorScheme: ColorScheme(
         brightness: brightness,
         error: colors.statusCritical,
-        onError: RdPalette.white,
+        onError: colors.contentInverse,
         onPrimary: colors.contentInverse,
         onSecondary: colors.actionSecondaryContent,
         onSurface: colors.contentPrimary,
@@ -34,73 +34,72 @@ abstract final class RdTheme {
       useMaterial3: true,
     );
 
-    final textTheme = base.textTheme
-        .apply(
-          bodyColor: colors.contentPrimary,
-          displayColor: colors.contentPrimary,
-          fontFamily: 'Pretendard',
-        )
-        .copyWith(
-          bodyLarge: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
-          ),
-          bodyMedium: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            height: 22 / 15,
-          ),
-          bodySmall: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-            height: 16 / 12,
-          ),
-          displayLarge: const TextStyle(
-            fontFamily: 'SUIT',
-            fontSize: 48,
-            fontWeight: FontWeight.w800,
-            height: 56 / 48,
-            letterSpacing: -1,
-          ),
-          displayMedium: const TextStyle(
-            fontFamily: 'SUIT',
-            fontSize: 36,
-            fontWeight: FontWeight.w800,
-            height: 46 / 36,
-            letterSpacing: -0.8,
-          ),
-          headlineLarge: const TextStyle(
-            fontFamily: 'SUIT',
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            height: 38 / 28,
-            letterSpacing: -0.5,
-          ),
-          headlineMedium: const TextStyle(
-            fontFamily: 'SUIT',
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            height: 30 / 22,
-            letterSpacing: -0.3,
-          ),
-          headlineSmall: const TextStyle(
-            fontFamily: 'SUIT',
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            height: 26 / 18,
-          ),
-          labelLarge: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            height: 24 / 16,
-          ),
-          labelMedium: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 20 / 14,
-          ),
-        );
+    final baseTextTheme = base.textTheme.apply(
+      bodyColor: colors.contentPrimary,
+      displayColor: colors.contentPrimary,
+      fontFamily: 'Pretendard',
+    );
+    final textTheme = baseTextTheme.copyWith(
+      bodyLarge: baseTextTheme.bodyLarge?.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        height: 1.5,
+      ),
+      bodyMedium: baseTextTheme.bodyMedium?.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
+        height: 22 / 15,
+      ),
+      bodySmall: baseTextTheme.bodySmall?.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 16 / 12,
+      ),
+      displayLarge: baseTextTheme.displayLarge?.copyWith(
+        fontFamily: 'SUIT',
+        fontSize: 48,
+        fontWeight: FontWeight.w800,
+        height: 56 / 48,
+        letterSpacing: -1,
+      ),
+      displayMedium: baseTextTheme.displayMedium?.copyWith(
+        fontFamily: 'SUIT',
+        fontSize: 36,
+        fontWeight: FontWeight.w800,
+        height: 46 / 36,
+        letterSpacing: -0.8,
+      ),
+      headlineLarge: baseTextTheme.headlineLarge?.copyWith(
+        fontFamily: 'SUIT',
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        height: 38 / 28,
+        letterSpacing: -0.5,
+      ),
+      headlineMedium: baseTextTheme.headlineMedium?.copyWith(
+        fontFamily: 'SUIT',
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        height: 30 / 22,
+        letterSpacing: -0.3,
+      ),
+      headlineSmall: baseTextTheme.headlineSmall?.copyWith(
+        fontFamily: 'SUIT',
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        height: 26 / 18,
+      ),
+      labelLarge: baseTextTheme.labelLarge?.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        height: 24 / 16,
+      ),
+      labelMedium: baseTextTheme.labelMedium?.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        height: 20 / 14,
+      ),
+    );
 
     return base.copyWith(
       appBarTheme: AppBarTheme(
@@ -145,6 +144,18 @@ abstract final class RdTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(RdRadius.md),
           borderSide: BorderSide(color: colors.focus, width: 2),
+        ),
+        helperStyle: textTheme.bodySmall?.copyWith(
+          color: colors.contentSecondary,
+        ),
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: colors.contentTertiary,
+        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: colors.contentSecondary,
+        ),
+        suffixStyle: textTheme.bodyMedium?.copyWith(
+          color: colors.contentSecondary,
         ),
       ),
       pageTransitionsTheme: PageTransitionsTheme(
