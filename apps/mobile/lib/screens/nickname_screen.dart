@@ -38,19 +38,21 @@ class _NicknameScreenState extends ConsumerState<NicknameScreen> {
       return;
     }
     ref.read(demoProfileProvider.notifier).setNickname(nickname);
-    context.go('/home');
+    context.go('/movement');
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
+        padding: const EdgeInsets.fromLTRB(28, 14, 28, 22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _BackLink(onTap: () => context.go('/terms')),
+            const SizedBox(height: 22),
             Text(
-              '마지막이에요',
+              '환영해요',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: CompanionColors.coralAction,
                 fontWeight: FontWeight.w800,
@@ -72,7 +74,7 @@ class _NicknameScreenState extends ConsumerState<NicknameScreen> {
               },
               onSubmitted: (_) => _submit(),
               style: Theme.of(context).textTheme.headlineSmall,
-              textInputAction: TextInputAction.done,
+              textInputAction: TextInputAction.next,
               decoration: InputDecoration(
                 counterText: '',
                 errorText: _error,
@@ -81,8 +83,51 @@ class _NicknameScreenState extends ConsumerState<NicknameScreen> {
               ),
             ),
             const Spacer(),
-            CompanionPrimaryButton(label: '시작하기', onPressed: _submit),
+            CompanionPrimaryButton(label: '다음', onPressed: _submit),
           ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _BackLink extends StatelessWidget {
+  const _BackLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Semantics(
+      button: true,
+      excludeSemantics: true,
+      label: '돌아가기',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: const SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.chevron_left_rounded,
+                color: CompanionColors.coralAction,
+                size: 22,
+              ),
+              SizedBox(width: 2),
+              Text(
+                '돌아가기',
+                style: TextStyle(
+                  color: CompanionColors.coralAction,
+                  fontFamily: 'Pretendard',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),

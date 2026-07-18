@@ -148,21 +148,30 @@ void main() {
         ),
       );
 
+      await _pumpUntil(tester, find.text('카카오로 3초만에 로그인'));
+      await tester.tap(find.text('카카오로 3초만에 로그인'));
       await _pumpUntil(tester, find.text('동의하고 계속하기'));
       await tester.tap(find.text('동의하고 계속하기'));
+      await _pumpUntil(tester, find.text('약관에 동의해주세요'));
+      await tester.tap(find.text('다음'));
       await _pumpUntil(tester, find.text('뭐라고 불러드릴까요?'));
-      await tester.tap(find.text('시작하기'));
-      await _pumpUntil(tester, find.text('산책 시작하기'));
-      expect(tester.takeException(), isNull);
-
-      await tester.tap(find.text('산책 시작하기'));
+      await tester.pump(const Duration(milliseconds: 500));
+      tester.testTextInput.hide();
+      await tester.pump();
+      final nicknameNext = find.text('다음');
+      await tester.ensureVisible(nicknameNext);
+      await tester.tap(nicknameNext);
       await _pumpUntil(tester, find.text('이동 방식을 알려주세요'));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('휠체어'), findsOneWidget);
       expect(find.text('유모차'), findsOneWidget);
       expect(find.text('일반 보행'), findsOneWidget);
 
-      await tester.tap(find.text('다음'));
+      await tester.tap(find.text('시작하기'));
+      await _pumpUntil(tester, find.text('산책 시작하기'));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('산책 시작하기'));
       await _pumpUntil(tester, find.text('경로를 비교해보세요'));
       await _pumpUntil(tester, find.text('안전한 경로로 출발'));
       expect(find.byType(ChoiceChip), findsNothing);
@@ -180,6 +189,34 @@ void main() {
       expect(container.read(trackingProvider).acceptedEvents, 1);
       expect(container.read(trackingProvider).status, TrackingStatus.active);
       expect(tester.takeException(), isNull);
+
+      final barrierWarning = find.text('새로운 이동 충격을 감지했어요');
+      await tester.ensureVisible(barrierWarning);
+      await tester.tap(barrierWarning);
+      await _pumpUntil(tester, find.text('이 구간 피해서 안내받기'));
+      await tester.tap(find.text('이 구간 피해서 안내받기'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await _pumpUntil(tester, find.text('오크가 & 3번길 구간을 피한 경로예요'));
+      expect(container.read(trackingProvider).status, TrackingStatus.idle);
+      expect(
+        container
+            .read(routerProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .queryParameters['avoidRoad'],
+        'demo-132',
+      );
+      expect(find.text('선택한 위험 구간 제외 · 휠체어 모드'), findsOneWidget);
+
+      await _pumpUntil(tester, find.text('안전한 경로로 출발'));
+      await tester.tap(find.text('안전한 경로로 출발'));
+      await _pumpUntil(tester, find.text('함께 걷는 중'));
+      expect(container.read(trackingProvider).status, TrackingStatus.active);
+      await container.read(trackingProvider.notifier).injectDebugImpact();
+      expect(container.read(trackingProvider).acceptedEvents, 1);
 
       await tester.pump(const Duration(milliseconds: 500));
       await tester.tap(find.text('종료'));
@@ -201,6 +238,54 @@ void main() {
       expect(find.text('공유하기'), findsOneWidget);
       expect(find.text('경로 저장'), findsOneWidget);
 
+      await tester.tap(find.text('경로 저장'));
+      await _pumpUntil(tester, find.text('산책 시작하기'));
+      expect(find.text('주변'), findsOneWidget);
+      expect(find.text('커뮤니티'), findsOneWidget);
+      expect(find.text('리포트'), findsOneWidget);
+      expect(find.text('프로필'), findsOneWidget);
+
+      await tester.tap(find.text('커뮤니티'));
+      await _pumpUntil(tester, find.text('이웃들이 함께 만드는 용봉동 안전 지도예요'));
+      expect(find.text('저도 확인했어요 · 3'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('커뮤니티 글쓰기'));
+      await _pumpUntil(tester, find.text('이웃에게 알리기'));
+      await tester.enterText(find.byType(TextField), '후문 앞 연석에 경사로가 없어요.');
+      await tester.tap(find.text('등록'));
+      await _pumpUntil(tester, find.text('후문 앞 연석에 경사로가 없어요.'));
+      expect(find.textContaining('방금 전'), findsOneWidget);
+
+      container.read(routerProvider).go('/reports');
+      await _pumpUntil(tester, find.text('지금까지의 산책 기록이에요'));
+      expect(find.text('용봉로 · 전남대학교 방면'), findsOneWidget);
+      expect(find.text('메인가 · 공사 구간 우회'), findsOneWidget);
+
+      container.read(routerProvider).go('/home');
+      await _pumpUntil(tester, find.text('산책 시작하기'));
+      await tester.tap(find.byIcon(Icons.notifications_none_rounded));
+      await _pumpUntil(tester, find.text('산책 리포트가 도착했어요'));
+      expect(find.text('오크가 구간 점수가 낮아졌어요'), findsOneWidget);
+
+      container.read(routerProvider).go('/nearby');
+      await _pumpUntil(tester, find.text('평탄하고 안전한 구간'));
+      await tester.tap(find.text('평탄하고 안전한 구간'));
+      await _pumpUntil(tester, find.text('이동하기 편안한 구간'));
+      expect(find.text('92'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      container.read(routerProvider).go('/profile');
+      await _pumpUntil(tester, find.text('MY IMPACT'));
+      await tester.tap(find.byIcon(Icons.edit_rounded));
+      await _pumpUntil(tester, find.text('저장'));
+      await tester.enterText(find.byType(TextField), '도로친구');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await _pumpUntil(tester, find.text('도로친구'));
+      expect(tester.takeException(), isNull);
+
+      container.read(routerProvider).go('/sensor');
+      await _pumpUntil(tester, find.text('Road DNA가 이동을 분석하고 있어요'));
+      expect(tester.takeException(), isNull);
+
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     },
@@ -210,6 +295,7 @@ void main() {
     tester,
   ) async {
     _usePhoneViewport(tester);
+    SharedPreferences.setMockInitialValues({});
     const locationService = _DeniedLocationService();
 
     await tester.pumpWidget(
@@ -231,6 +317,8 @@ void main() {
       ),
     );
 
+    await _pumpUntil(tester, find.text('카카오로 3초만에 로그인'));
+    await tester.tap(find.text('카카오로 3초만에 로그인'));
     await _pumpUntil(tester, find.text('동의하고 계속하기'));
     await tester.tap(find.text('동의하고 계속하기'));
     await _pumpUntil(tester, find.text('기기 설정 열기'));

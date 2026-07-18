@@ -41,6 +41,16 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     context.go('/report');
   }
 
+  Future<void> _goBack() async {
+    final movement =
+        ref.read(trackingProvider).movementType ??
+        ref.read(demoProfileProvider).movementType;
+    await ref.read(trackingProvider.notifier).stop();
+    if (!mounted) return;
+    ref.read(trackingProvider.notifier).reset();
+    context.go('/routes?movement=${movement.apiName}');
+  }
+
   @override
   Widget build(BuildContext context) {
     final tracking = ref.watch(trackingProvider);
@@ -145,15 +155,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                           top: 16,
                           child: Row(
                             children: [
-                              CompanionIconButton(
-                                backgroundColor: CompanionColors.white,
-                                icon: Icons.menu_rounded,
-                                onPressed: () => showCompanionMessage(
-                                  context,
-                                  '측정을 종료하면 홈 메뉴를 이용할 수 있어요.',
-                                ),
-                                semanticLabel: '측정 메뉴',
-                                size: 40,
+                              CompanionBackLink(
+                                onPressed: () => unawaited(_goBack()),
                               ),
                               const Spacer(),
                               CompanionTag(

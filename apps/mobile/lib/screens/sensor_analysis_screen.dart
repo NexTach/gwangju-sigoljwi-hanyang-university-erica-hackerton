@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../state/providers.dart';
 import '../state/tracking_controller.dart';
@@ -42,6 +43,11 @@ class SensorAnalysisScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
           children: [
+            CompanionBackLink(
+              onPressed: () =>
+                  context.canPop() ? context.pop() : context.go('/home'),
+            ),
+            const SizedBox(height: 4),
             Row(
               children: [
                 DecoratedBox(

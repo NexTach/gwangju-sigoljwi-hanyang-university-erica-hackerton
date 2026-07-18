@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../core/models.dart';
 import '../state/providers.dart';
+import '../state/tracking_controller.dart';
 import '../ui/companion_theme.dart';
 import '../ui/companion_widgets.dart';
+import '../ui/demo_profile_state.dart';
 
-class RoadDetailScreen extends ConsumerWidget {
+class RoadDetailScreen extends ConsumerStatefulWidget {
   const RoadDetailScreen({
     required this.roadSegmentId,
     this.fallbackName,
@@ -20,39 +22,46 @@ class RoadDetailScreen extends ConsumerWidget {
   final RoadMapItem? seed;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RoadDetailScreen> createState() => _RoadDetailScreenState();
+}
+
+class _RoadDetailScreenState extends ConsumerState<RoadDetailScreen> {
+  bool _preparingRoute = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final roadSegmentId = widget.roadSegmentId;
     final detailState = ref.watch(roadDetailProvider(roadSegmentId));
     final isDemoRoad = roadSegmentId.startsWith('demo-');
     final detail = isDemoRoad ? null : detailState.value;
-    final seedRoad = isDemoRoad ? null : seed;
+    final seedRoad = isDemoRoad ? null : widget.seed;
     final wheelchairScore = detail?.scores
         .where((score) => score.movementType == MovementType.wheelchair)
         .firstOrNull;
+    final demoMetrics = _demoMetrics(roadSegmentId);
     final score =
-        (isDemoRoad ? 41 : null) ??
-        seedRoad?.score ??
-        wheelchairScore?.score ??
-        65;
+        demoMetrics?.score ?? seedRoad?.score ?? wheelchairScore?.score ?? 65;
     final eventCount =
-        (isDemoRoad ? 5 : null) ??
+        demoMetrics?.eventCount ??
         detail?.eventCount ??
         seedRoad?.eventCount ??
         (score < 60 ? 5 : 12);
     final confidence =
-        (isDemoRoad ? 0.65 : null) ??
+        demoMetrics?.confidence ??
         wheelchairScore?.confidence ??
         seedRoad?.confidence ??
         0.65;
     final roadName =
-        (isDemoRoad ? fallbackName : null) ??
+        (isDemoRoad ? widget.fallbackName : null) ??
         detail?.roadName ??
         seedRoad?.roadName ??
-        fallbackName ??
+        widget.fallbackName ??
         '오크가 & 3번길 구간';
-    final isCaution = score < 60;
-    final scoreColor = isCaution
+    final isBarrier = score < 60;
+    final needsCaution = score < 75;
+    final scoreColor = isBarrier
         ? CompanionColors.red
-        : score < 75
+        : needsCaution
         ? CompanionColors.amber
         : CompanionColors.green;
 
@@ -63,6 +72,11 @@ class RoadDetailScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              CompanionBackLink(
+                onPressed: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
+              ),
+              const SizedBox(height: 4),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -106,13 +120,17 @@ class RoadDetailScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  isCaution ? '이동 장애 가능 구간' : '이동하기 편안한 구간',
+                                  isBarrier
+                                      ? '이동 장애 가능 구간'
+                                      : needsCaution
+                                      ? '주의가 필요한 구간'
+                                      : '이동하기 편안한 구간',
                                   style: Theme.of(context).textTheme.labelLarge
                                       ?.copyWith(color: scoreColor),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '휠체어 기준 · ${isCaution ? '반복적인 충격 감지' : '안정적인 노면 감지'}',
+                                  '휠체어 기준 · ${needsCaution ? '반복적인 충격 감지' : '안정적인 노면 감지'}',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -130,21 +148,25 @@ class RoadDetailScreen extends ConsumerWidget {
                           _RoadMetricBar(
                             color: scoreColor,
                             label: '노면 상태',
-                            value: isDemoRoad ? 38 : score.clamp(0, 100),
+                            value: demoMetrics?.surface ?? score.clamp(0, 100),
                           ),
                           const SizedBox(height: 14),
                           _RoadMetricBar(
                             color: CompanionColors.amberBright,
                             label: '경사도',
-                            value: (score + 23).clamp(0, 100),
+                            value:
+                                demoMetrics?.slope ??
+                                (score + 23).clamp(0, 100),
                           ),
                           const SizedBox(height: 14),
                           _RoadMetricBar(
-                            color: isCaution
+                            color: needsCaution
                                 ? CompanionColors.red
                                 : CompanionColors.greenBright,
                             label: '반복 진동',
-                            value: isCaution ? 21 : 78,
+                            value:
+                                demoMetrics?.vibration ??
+                                (needsCaution ? 21 : 78),
                           ),
                         ],
                       ),
@@ -238,10 +260,10 @@ class RoadDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 9),
                     _DetectionRow(
-                      color: isCaution
+                      color: needsCaution
                           ? CompanionColors.red
                           : CompanionColors.green,
-                      label: isCaution ? '강한 단일 충격 감지' : '평탄한 노면 패턴 감지',
+                      label: needsCaution ? '강한 단일 충격 감지' : '평탄한 노면 패턴 감지',
                       time: '2시간 전',
                     ),
                     const SizedBox(height: 9),
@@ -255,16 +277,12 @@ class RoadDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               CompanionPrimaryButton(
-                label: isCaution ? '이 구간 피해서 안내받기' : '이 구간으로 안내받기',
-                onPressed: () {
-                  showCompanionMessage(
-                    context,
-                    isCaution
-                        ? '이 구간을 피하는 경로를 준비할게요.'
-                        : '이 구간을 포함한 편안한 경로를 준비할게요.',
-                  );
-                  context.push('/movement');
-                },
+                label: needsCaution ? '이 구간 피해서 안내받기' : '이 구간으로 안내받기',
+                loading: _preparingRoute,
+                onPressed: () => _prepareGuidance(
+                  needsCaution: needsCaution,
+                  roadName: roadName,
+                ),
               ),
             ],
           ),
@@ -273,11 +291,93 @@ class RoadDetailScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _prepareGuidance({
+    required bool needsCaution,
+    required String roadName,
+  }) async {
+    if (_preparingRoute) return;
+    setState(() => _preparingRoute = true);
+
+    final tracking = ref.read(trackingProvider);
+    final movement =
+        tracking.movementType ?? ref.read(demoProfileProvider).movementType;
+
+    if (tracking.status == TrackingStatus.active) {
+      await ref.read(trackingProvider.notifier).stop();
+      if (!mounted) return;
+      ref.read(trackingProvider.notifier).reset();
+    }
+
+    if (!mounted) return;
+    final queryParameters = <String, String>{
+      'movement': movement.apiName,
+      if (needsCaution) 'avoidRoad': widget.roadSegmentId,
+      if (needsCaution) 'avoidName': roadName,
+    };
+    context.go(
+      Uri(path: '/routes', queryParameters: queryParameters).toString(),
+    );
+  }
+
   String _shortId(String value) {
     final digits = value.replaceAll(RegExp('[^0-9]'), '');
     if (digits.length >= 3) return digits.substring(digits.length - 3);
     return digits.isEmpty ? '132' : digits;
   }
+
+  _DemoRoadMetrics? _demoMetrics(String value) => switch (value) {
+    'demo-101' => const _DemoRoadMetrics(
+      confidence: 0.82,
+      eventCount: 9,
+      score: 92,
+      slope: 88,
+      surface: 94,
+      vibration: 92,
+    ),
+    'demo-204' => const _DemoRoadMetrics(
+      confidence: 0.78,
+      eventCount: 7,
+      score: 88,
+      slope: 84,
+      surface: 90,
+      vibration: 89,
+    ),
+    'demo-245' => const _DemoRoadMetrics(
+      confidence: 0.58,
+      eventCount: 4,
+      score: 64,
+      slope: 72,
+      surface: 62,
+      vibration: 58,
+    ),
+    _ when value.startsWith('demo-') => const _DemoRoadMetrics(
+      confidence: 0.65,
+      eventCount: 5,
+      score: 41,
+      slope: 64,
+      surface: 38,
+      vibration: 21,
+    ),
+    _ => null,
+  };
+}
+
+class _DemoRoadMetrics {
+  const _DemoRoadMetrics({
+    required this.confidence,
+    required this.eventCount,
+    required this.score,
+    required this.slope,
+    required this.surface,
+    required this.vibration,
+  });
+
+  final double confidence;
+  final int eventCount;
+  final int score;
+  final int slope;
+  final int surface;
+  final int vibration;
 }
 
 class _RoadMetricBar extends StatelessWidget {

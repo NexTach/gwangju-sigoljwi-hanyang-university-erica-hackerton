@@ -10,8 +10,15 @@ import '../ui/companion_widgets.dart';
 import '../ui/demo_profile_state.dart';
 
 class RouteComparisonScreen extends ConsumerStatefulWidget {
-  const RouteComparisonScreen({required this.initialMovement, super.key});
+  const RouteComparisonScreen({
+    required this.initialMovement,
+    this.avoidedRoadName,
+    this.avoidedRoadSegmentId,
+    super.key,
+  });
 
+  final String? avoidedRoadName;
+  final String? avoidedRoadSegmentId;
   final MovementType initialMovement;
 
   @override
@@ -87,10 +94,47 @@ class _RouteComparisonScreenState extends ConsumerState<RouteComparisonScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            CompanionBackLink(
+              onPressed: () =>
+                  context.canPop() ? context.pop() : context.go('/home'),
+            ),
+            const SizedBox(height: 4),
             CompanionScreenHeader(
-              subtitle: '전남대학교 후문 · ${_movementLabel(_movement)} 모드',
+              subtitle: widget.avoidedRoadSegmentId == null
+                  ? '전남대학교 후문 · ${_movementLabel(_movement)} 모드'
+                  : '선택한 위험 구간 제외 · ${_movementLabel(_movement)} 모드',
               title: '경로를 비교해보세요',
             ),
+            if (widget.avoidedRoadSegmentId != null) ...[
+              const SizedBox(height: 14),
+              CompanionCard(
+                color: CompanionColors.amberSoft,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 13,
+                ),
+                radius: 18,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.alt_route_rounded,
+                      color: CompanionColors.amber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${widget.avoidedRoadName ?? '도로 구간 #${_shortRoadId(widget.avoidedRoadSegmentId!)}'}을 피한 경로예요',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: CompanionColors.ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             Expanded(
               child: FutureBuilder<RouteComparison>(
@@ -177,6 +221,12 @@ class _RouteComparisonScreenState extends ConsumerState<RouteComparisonScreen> {
     MovementType.stroller => '유모차',
     MovementType.walking => '보행',
   };
+
+  String _shortRoadId(String value) {
+    final digits = value.replaceAll(RegExp('[^0-9]'), '');
+    if (digits.length >= 3) return digits.substring(digits.length - 3);
+    return digits.isEmpty ? value : digits;
+  }
 }
 
 class _RouteCard extends StatelessWidget {

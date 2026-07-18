@@ -8,6 +8,7 @@ import '../state/providers.dart';
 import '../ui/brand_mark.dart';
 import '../ui/companion_theme.dart';
 import '../ui/companion_widgets.dart';
+import '../ui/demo_profile_state.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -28,16 +29,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _bootstrap() async {
     final startedAt = DateTime.now();
     try {
-      await Future.wait([
+      final results = await Future.wait<Object>([
         ref.read(anonymousIdentityProvider.future),
-        ref.read(locationAccessProvider.future),
+        ref.read(demoProfileProvider.notifier).restore(),
       ]);
+      final onboardingCompleted = results.last as bool;
       final elapsed = DateTime.now().difference(startedAt);
       if (elapsed < const Duration(milliseconds: 850)) {
         await Future<void>.delayed(const Duration(milliseconds: 850) - elapsed);
       }
       if (!mounted) return;
-      context.go('/permission');
+      context.go(onboardingCompleted ? '/home' : '/login');
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = '앱을 준비하지 못했어요. 다시 시도해 주세요.');
@@ -74,14 +76,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                         '당신을 위한 AI 이동 도우미',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: CompanionColors.white.withValues(alpha: 0.86),
-                        ),
-                      ),
-                      const SizedBox(height: 34),
-                      const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(
-                          color: CompanionColors.white,
-                          strokeWidth: 2,
                         ),
                       ),
                     ],

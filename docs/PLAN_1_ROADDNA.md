@@ -168,17 +168,18 @@ Wheelchair Sensor Mode / Stroller Sensor Mode / Contributor Mode
 
 구현 화면과 사용자 기능의 기준은 `claude-design/Road DNA mobile application/Road DNA - Companion.dc.html`이다. 기술 문서에 더 넓은 발전 방향이 있더라도 이번 데모에서는 아래 프로토타입 흐름만 사용자에게 노출한다.
 
-- 모바일: 스플래시 → 권한 동의 → 닉네임 → 홈 → 이동 유형 선택 → 경로 비교 → 산책 중 → 산책 리포트
-- 탐색: 주변 정보, 프로필, 센서 분석 상세, 도로 상세
+- 모바일 온보딩: 스플래시 → 간편 로그인 → 권한 동의 → 약관 동의 → 닉네임 → 최초 이동 유형 선택 → 홈
+- 산책: 홈 → 저장된 이동 유형으로 경로 비교 → 산책 중 → 산책 리포트
+- 탐색: 주변 정보, 커뮤니티·글쓰기, 산책 리포트 목록, 알림, 프로필, 센서 분석 상세, 도로 상세
 - 웹: 접근성 핵심 지표, 도로 상태 지도, 개선 우선순위 표
-- 프로토타입에 보이는 제어: 이동 유형 선택, 안전 경로 출발, 일시정지/계속하기, 종료, 공유/저장, 주변 필터, 하단 탐색, 설정 목록, 로그아웃, 도로 회피 안내
+- 프로토타입에 보이는 제어: 데모 간편 로그인, 약관 선택, 이동 유형 선택, 안전 경로 출발, 일시정지/계속하기, 종료, 공유/저장, 주변·커뮤니티 필터, 커뮤니티 제보 등록, 알림 확인, 5탭 하단 탐색, 설정 목록, 로그아웃, 도로 회피 안내
 
 다음 항목은 내부 개발 도구 또는 후속 범위이며 데모 사용자 화면에 노출하지 않는다.
 
-- 회원가입·로그인과 계정 관리
+- 실제 OAuth·회원 계정 관리와 서버 영속화
 - 센서 보정, 디버그 패널, 디자인 시스템 카탈로그
 - 프로토타입에 없는 관리자 필터·수동 새로고침·추가 드릴다운
-- 사진 신고, 장애물 종류 확정, 커뮤니티·알림 센터 등 신규 기능
+- 장애물 자동 분류와 사진 업로드 서버 연동
 
 재현 가능한 센서, 익명 UUID, 로컬 저장, API 연동은 위 화면을 작동시키기 위한 내부 구현으로 사용할 수 있다.
 
@@ -188,13 +189,17 @@ Wheelchair Sensor Mode / Stroller Sensor Mode / Contributor Mode
 
 ### F-001 회원/익명 사용자
 
-MVP에서는 회원가입 없이 익명 UUID를 생성한다.
+최신 Companion 화면에는 카카오·구글 간편 로그인을 노출하지만, 해커톤 데모에서는
+실제 OAuth나 계정 서버를 붙이지 않고 두 버튼 모두 온보딩 다음 단계로 이동한다.
+내부 데이터 식별은 기존처럼 익명 UUID를 사용한다.
 
 ```text
-App 최초 실행 → Device Anonymous UUID 생성 → Local Secure Storage 저장
+App 최초 실행 → 데모 로그인 선택 → Device Anonymous UUID 생성
+→ Local Secure Storage 저장
 ```
 
 - 최초 실행 시 UUID 생성, 재실행 시 유지
+- 로그인 버튼은 데모 화면 전환만 수행하고 토큰을 발급·저장하지 않음
 - 서버에 개인정보 전송하지 않음
 
 ### F-002 이동 유형 선택
@@ -408,14 +413,25 @@ ROAD_SCORE (score_id, road_segment_id, movement_type, score, confidence,
 
 | # | 화면 | Route | 핵심 |
 |---|---|---|---|
-| 01 | Splash | `/splash` | UUID 확인/생성 → 권한 확인 → Home |
-| 02 | Permission | `/permission` | Location + Motion Sensor 권한, 거부 시 기능 제한 안내 |
-| 03 | Home Map | `/home` | 지도, 현재 위치, Road DNA Layer, Barrier Marker, CTA **[Road DNA 측정 시작]** |
-| 04 | Movement Type | Bottom Sheet | ♿ 휠체어 / 👶 유모차 / 🚶 보행 선택 → 세션 생성 |
-| 05 | Tracking | `/tracking` | 이동 거리·분석 도로·발견 후보 표시, [측정 종료] |
-| 06 | Detection Feedback | Toast | "⚠ 이동 충격 패턴 감지" — Modal 금지, 이동 방해 없는 Bottom Toast |
-| 07 | Road Detail | — | Road DNA Score, 유형별 점수, 감지 이벤트 수, 신뢰도 |
-| 08 | Route Comparison | — | FASTEST vs ROAD DNA 추천 경로 비교, [Road DNA 경로 선택] |
+| 01 | Splash | `/splash` | UUID 확인/생성 → 데모 로그인 |
+| 02 | Login | `/login` | 카카오/구글 간편 로그인 시연 → 권한 동의 |
+| 03 | Permission | `/permission` | Location + Motion Sensor 권한, 거부 시 기능 제한 안내 |
+| 04 | Terms | `/terms` | 필수·선택 약관 동의 |
+| 05 | Nickname | `/nickname` | 2~10자 닉네임 입력 |
+| 06 | Movement Type | `/movement` | 최초 1회 ♿ 휠체어 / 👶 유모차 / 🚶 보행 선택 |
+| 07 | Home Map | `/home` | 지도, 현재 위치, Road DNA Layer, Barrier Marker, CTA **[산책 시작하기]** |
+| 08 | Route Comparison | `/routes` | 저장된 이동 유형으로 FASTEST vs ROAD DNA 추천 경로 비교 |
+| 09 | Tracking | `/tracking` | 이동 거리·분석 도로·발견 후보 표시, [종료] |
+| 10 | Detection Feedback | Toast | "⚠ 이동 충격 패턴 감지" — Modal 금지, 이동 방해 없는 Bottom Toast |
+| 11 | Walk Report | `/report` | 완료 점수·경로·기록·공유/저장 |
+| 12 | Nearby | `/nearby` | 편안한 경로·주의 구간 필터 |
+| 13 | Reports List | `/reports` | 과거 산책 리포트 목록·상세 진입 |
+| 14 | Community | `/community` | 동네 제보 목록·필터·확인 |
+| 15 | Community Write | `/community/write` | 위치·상황·내용·사진 선택 제보 |
+| 16 | Notifications | `/notifications` | 알림 목록·읽음 상태 |
+| 17 | Profile | `/profile` | 기여도·설정·로그아웃 |
+| 18 | Sensor Analysis | `/sensor` | 충격 강도·후보·신뢰도 |
+| 19 | Road Detail | `/road/:id` | Road DNA Score, 유형별 점수, 감지 이벤트 수, 신뢰도 |
 
 - 실시간 센서값은 메인 UI에 과도하게 노출하지 않는다.
 - 개발/시연 모드에서는 **Debug Panel**(가속도 XYZ, Magnitude, GPS, Detection) 제공 — 라이브 시연에 유용.

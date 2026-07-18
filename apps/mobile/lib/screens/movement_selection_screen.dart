@@ -17,6 +17,7 @@ class MovementSelectionScreen extends ConsumerStatefulWidget {
 
 class _MovementSelectionScreenState
     extends ConsumerState<MovementSelectionScreen> {
+  bool _finishing = false;
   late MovementType _selected;
 
   @override
@@ -25,19 +26,31 @@ class _MovementSelectionScreenState
     _selected = ref.read(demoProfileProvider).movementType;
   }
 
-  void _next() {
-    ref.read(demoProfileProvider.notifier).setMovementType(_selected);
-    context.push('/routes?movement=${_selected.apiName}');
+  Future<void> _finishOnboarding() async {
+    setState(() => _finishing = true);
+    try {
+      await ref
+          .read(demoProfileProvider.notifier)
+          .completeOnboarding(_selected);
+      if (!mounted) return;
+      context.go('/home');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _finishing = false);
+      showCompanionMessage(context, '설정을 저장하지 못했어요. 다시 시도해 주세요.');
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 20, 28, 22),
+        padding: const EdgeInsets.fromLTRB(28, 14, 28, 22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _BackLink(onTap: () => context.go('/nickname')),
+            const SizedBox(height: 18),
             CompanionScreenHeader(
               subtitle: '나에게 맞는 가장 안전한 길을 찾아드릴게요',
               title: '이동 방식을 알려주세요',
@@ -61,8 +74,55 @@ class _MovementSelectionScreenState
               ),
             ),
             const SizedBox(height: 16),
-            CompanionPrimaryButton(label: '다음', onPressed: _next),
+            CompanionPrimaryButton(
+              label: '시작하기',
+              loading: _finishing,
+              onPressed: _finishOnboarding,
+            ),
           ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _BackLink extends StatelessWidget {
+  const _BackLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Semantics(
+      button: true,
+      excludeSemantics: true,
+      label: '돌아가기',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: const SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.chevron_left_rounded,
+                color: CompanionColors.coralAction,
+                size: 22,
+              ),
+              SizedBox(width: 2),
+              Text(
+                '돌아가기',
+                style: TextStyle(
+                  color: CompanionColors.coralAction,
+                  fontFamily: 'Pretendard',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),

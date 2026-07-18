@@ -57,7 +57,7 @@ Mobile                         Dashboard
 │ coral primary action     │     │ four rounded KPI cards       │
 │ score + schematic map    │     ├ rounded map ┬ priority table │
 │ status / report cards    │     │             │                │
-├ floating three-tab nav ──┤     └─────────────┴────────────────┘
+├ floating five-tab nav ───┤     └─────────────┴────────────────┘
 ```
 
 모바일은 4pt 기본 격자와 20px 화면 여백, 대시보드는 12-column 유동 격자를 쓴다.

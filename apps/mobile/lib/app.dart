@@ -4,18 +4,24 @@ import 'package:go_router/go_router.dart';
 import 'package:road_dna_design/road_dna_design.dart';
 
 import 'core/models.dart';
+import 'screens/community_screen.dart';
+import 'screens/community_write_screen.dart';
 import 'screens/completion_report_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/movement_selection_screen.dart';
 import 'screens/nearby_screen.dart';
 import 'screens/nickname_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/permission_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/road_detail_screen.dart';
 import 'screens/route_comparison_screen.dart';
 import 'screens/sensor_analysis_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/terms_screen.dart';
 import 'screens/tracking_screen.dart';
+import 'screens/walk_reports_screen.dart';
 import 'ui/companion_theme.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -34,10 +40,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
         path: '/splash',
       ),
+      GoRoute(builder: (context, state) => const LoginScreen(), path: '/login'),
       GoRoute(
         builder: (context, state) => const PermissionScreen(),
         path: '/permission',
       ),
+      GoRoute(builder: (context, state) => const TermsScreen(), path: '/terms'),
       GoRoute(
         builder: (context, state) => const NicknameScreen(),
         path: '/nickname',
@@ -50,6 +58,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         builder: (context, state) => const ProfileScreen(),
         path: '/profile',
+      ),
+      GoRoute(
+        builder: (context, state) => const WalkReportsScreen(),
+        path: '/reports',
+      ),
+      GoRoute(
+        builder: (context, state) => const CommunityScreen(),
+        path: '/community',
+      ),
+      GoRoute(
+        builder: (context, state) => const CommunityWriteScreen(),
+        path: '/community/write',
+      ),
+      GoRoute(
+        builder: (context, state) => const NotificationsScreen(),
+        path: '/notifications',
       ),
       GoRoute(
         builder: (context, state) => const MovementSelectionScreen(),
@@ -74,7 +98,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             (movement) => movement.apiName == value,
             orElse: () => MovementType.wheelchair,
           );
-          return RouteComparisonScreen(initialMovement: movement);
+          return RouteComparisonScreen(
+            avoidedRoadName: state.uri.queryParameters['avoidName'],
+            avoidedRoadSegmentId: state.uri.queryParameters['avoidRoad'],
+            initialMovement: movement,
+          );
         },
         path: '/routes',
       ),

@@ -84,10 +84,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 CompanionIconButton(
                   icon: Icons.notifications_none_rounded,
-                  onPressed: () => showCompanionMessage(
-                    context,
-                    '새 알림이 없어요. 편안한 이동을 시작해 보세요.',
-                  ),
+                  onPressed: () => context.push('/notifications'),
                   semanticLabel: '알림 보기',
                   size: 48,
                 ),
@@ -96,7 +93,9 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             CompanionCard(
               color: CompanionColors.coralAction,
-              onTap: () => context.push('/movement'),
+              onTap: () => context.push(
+                '/routes?movement=${profile.movementType.apiName}',
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
               radius: 28,
               semanticLabel: '산책 시작하기',

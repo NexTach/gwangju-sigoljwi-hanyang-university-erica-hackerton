@@ -155,6 +155,35 @@ class CompanionIconButton extends StatelessWidget {
   );
 }
 
+class CompanionBackLink extends StatelessWidget {
+  const CompanionBackLink({
+    required this.onPressed,
+    this.label = '돌아가기',
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: TextButton.icon(
+      icon: const Icon(Icons.chevron_left_rounded, size: 20),
+      label: Text(label),
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: CompanionColors.coralAction,
+        minimumSize: const Size(44, 44),
+        padding: EdgeInsets.zero,
+        textStyle: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(color: CompanionColors.coralAction),
+      ),
+    ),
+  );
+}
+
 class CompanionScreenHeader extends StatelessWidget {
   const CompanionScreenHeader({
     required this.title,
@@ -216,7 +245,7 @@ class CompanionScreenHeader extends StatelessWidget {
   );
 }
 
-enum CompanionTab { nearby, home, profile }
+enum CompanionTab { nearby, community, home, reports, profile }
 
 class CompanionBottomNav extends StatelessWidget {
   const CompanionBottomNav({required this.current, super.key});
@@ -245,10 +274,26 @@ class CompanionBottomNav extends StatelessWidget {
             ),
             Expanded(
               child: _CompanionNavItem(
+                active: current == CompanionTab.community,
+                icon: Icons.groups_outlined,
+                label: '커뮤니티',
+                onTap: () => context.go('/community'),
+              ),
+            ),
+            Expanded(
+              child: _CompanionNavItem(
                 active: current == CompanionTab.home,
                 icon: Icons.home_rounded,
                 label: '홈',
                 onTap: () => context.go('/home'),
+              ),
+            ),
+            Expanded(
+              child: _CompanionNavItem(
+                active: current == CompanionTab.reports,
+                icon: Icons.show_chart_rounded,
+                label: '리포트',
+                onTap: () => context.go('/reports'),
               ),
             ),
             Expanded(
@@ -296,8 +341,8 @@ class _CompanionNavItem extends StatelessWidget {
               alignment: Alignment.center,
               curve: Curves.easeOutCubic,
               duration: const Duration(milliseconds: 180),
-              height: active ? 38 : 30,
-              width: active ? 44 : 38,
+              height: active ? 40 : 30,
+              width: active ? 44 : 34,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: active ? CompanionColors.coral : Colors.transparent,
@@ -305,7 +350,7 @@ class _CompanionNavItem extends StatelessWidget {
               child: Icon(
                 icon,
                 color: active ? CompanionColors.white : CompanionColors.muted,
-                size: active ? 20 : 21,
+                size: active ? 20 : 19,
               ),
             ),
             const SizedBox(height: 4),

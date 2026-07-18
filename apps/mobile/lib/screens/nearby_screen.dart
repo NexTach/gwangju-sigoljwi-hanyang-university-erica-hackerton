@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/models.dart';
 import '../state/providers.dart';
@@ -186,8 +187,16 @@ class _NearbyCard extends StatelessWidget {
         ? CompanionColors.coralSoft
         : CompanionColors.amberSoft;
     return CompanionCard(
+      onTap: () => context.push(
+        Uri(
+          path: '/road/${item.id}',
+          queryParameters: {'name': '${item.location} 구간'},
+        ).toString(),
+        extra: item.road,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 15),
       radius: 22,
+      semanticLabel: '${item.location} 도로 상세 보기',
       child: Row(
         children: [
           DecoratedBox(

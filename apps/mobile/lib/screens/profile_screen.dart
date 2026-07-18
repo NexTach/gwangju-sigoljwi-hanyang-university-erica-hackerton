@@ -10,6 +10,72 @@ import '../ui/demo_profile_state.dart';
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
+  Future<void> _editNickname(
+    BuildContext context,
+    WidgetRef ref,
+    String currentNickname,
+  ) async {
+    final controller = TextEditingController(text: currentNickname);
+    final nickname = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(28, 10, 28, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '뭐라고 불러드릴까요?',
+                  style: Theme.of(sheetContext).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 18),
+                TextField(
+                  autofocus: true,
+                  controller: controller,
+                  maxLength: 10,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    helperText: '2~10자로 입력해주세요',
+                  ),
+                  onSubmitted: (_) =>
+                      _submitNickname(sheetContext, controller.text),
+                ),
+                const SizedBox(height: 20),
+                CompanionPrimaryButton(
+                  label: '저장',
+                  onPressed: () =>
+                      _submitNickname(sheetContext, controller.text),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    if (nickname == null) return;
+    await ref.read(demoProfileProvider.notifier).setNickname(nickname);
+  }
+
+  void _submitNickname(BuildContext context, String value) {
+    final nickname = value.trim();
+    if (nickname.length < 2 || nickname.length > 10) {
+      showCompanionMessage(context, '닉네임은 2~10자로 입력해 주세요.');
+      return;
+    }
+    Navigator.of(context).pop(nickname);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(demoProfileProvider);
@@ -35,21 +101,54 @@ class ProfileScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: CompanionColors.coral,
-                    shape: BoxShape.circle,
-                  ),
-                  child: SizedBox.square(
-                    dimension: 68,
-                    child: Center(
-                      child: Text(
-                        profile.nickname.characters.first,
-                        style: Theme.of(context).textTheme.headlineLarge
-                            ?.copyWith(color: CompanionColors.white),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: CompanionColors.coral,
+                        shape: BoxShape.circle,
+                      ),
+                      child: SizedBox.square(
+                        dimension: 68,
+                        child: Center(
+                          child: Text(
+                            profile.nickname.characters.first,
+                            style: Theme.of(context).textTheme.headlineLarge
+                                ?.copyWith(color: CompanionColors.white),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    Positioned(
+                      bottom: -2,
+                      right: -2,
+                      child: Semantics(
+                        button: true,
+                        label: '프로필 이름 편집',
+                        child: SizedBox.square(
+                          dimension: 30,
+                          child: IconButton.filled(
+                            icon: const Icon(Icons.edit_rounded, size: 14),
+                            onPressed: () =>
+                                _editNickname(context, ref, profile.nickname),
+                            padding: EdgeInsets.zero,
+                            style: IconButton.styleFrom(
+                              backgroundColor: CompanionColors.coralAction,
+                              foregroundColor: CompanionColors.white,
+                              shape: const CircleBorder(
+                                side: BorderSide(
+                                  color: CompanionColors.cream,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            tooltip: '프로필 이름 편집',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -145,14 +244,12 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   _ProfileMenuRow(
-                    icon: Icons.receipt_long_outlined,
-                    label: '산책 리포트',
-                    onTap: () => context.push('/report'),
-                  ),
-                  _ProfileMenuRow(
                     icon: Icons.accessible_forward_rounded,
                     label: '접근성 설정',
-                    onTap: () => context.push('/movement'),
+                    onTap: () => showCompanionMessage(
+                      context,
+                      '$movementLabel로 맞춤 경로를 안내하고 있어요.',
+                    ),
                   ),
                   _ProfileMenuRow(
                     icon: Icons.notifications_none_rounded,
@@ -180,9 +277,10 @@ class ProfileScreen extends ConsumerWidget {
                     danger: true,
                     icon: Icons.logout_rounded,
                     label: '로그아웃',
-                    onTap: () {
-                      ref.read(demoProfileProvider.notifier).reset();
-                      context.go('/nickname');
+                    onTap: () async {
+                      await ref.read(demoProfileProvider.notifier).reset();
+                      if (!context.mounted) return;
+                      context.go('/login');
                     },
                     showDivider: false,
                   ),

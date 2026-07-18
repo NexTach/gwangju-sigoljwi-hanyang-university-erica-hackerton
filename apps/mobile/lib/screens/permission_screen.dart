@@ -32,7 +32,7 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
         _lastAccess = access;
         _loading = false;
       });
-      if (access == LocationAccess.granted) context.go('/nickname');
+      if (access == LocationAccess.granted) context.go('/terms');
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -48,10 +48,12 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 24, 28, 22),
+          padding: const EdgeInsets.fromLTRB(28, 14, 28, 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _BackLink(onTap: () => context.go('/login')),
+              const SizedBox(height: 22),
               Text(
                 'Road DNA 시작하기',
                 style: Theme.of(context).textTheme.headlineLarge,
@@ -113,6 +115,49 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
       ),
     );
   }
+}
+
+class _BackLink extends StatelessWidget {
+  const _BackLink({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: Semantics(
+      button: true,
+      excludeSemantics: true,
+      label: '돌아가기',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: const SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.chevron_left_rounded,
+                color: CompanionColors.coralAction,
+                size: 22,
+              ),
+              SizedBox(width: 2),
+              Text(
+                '돌아가기',
+                style: TextStyle(
+                  color: CompanionColors.coralAction,
+                  fontFamily: 'Pretendard',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _PermissionCard extends StatelessWidget {
