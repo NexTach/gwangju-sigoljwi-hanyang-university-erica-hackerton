@@ -9,13 +9,14 @@
   },
   "scripts": {
     "build": "pnpm --filter @road-dna/design-tokens build && pnpm -r --if-present build",
-    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "build:shared": "pnpm --filter @road-dna/design-tokens build && pnpm --filter @road-dna/contracts build && pnpm --filter @road-dna/ui build",
+    "check": "pnpm build:shared && pnpm -r --if-present lint && pnpm -r --if-present typecheck && pnpm -r --if-present test",
     "dev": "pnpm --parallel --filter @road-dna/api --filter @road-dna/dashboard dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "pnpm -r --if-present lint",
-    "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "lint": "pnpm build:shared && pnpm -r --if-present lint",
+    "test": "pnpm build:shared && pnpm -r --if-present test",
+    "typecheck": "pnpm build:shared && pnpm -r --if-present typecheck"
   },
   "devDependencies": {
     "prettier": "^3.6.2",
