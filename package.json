@@ -11,11 +11,15 @@
     "build": "pnpm --filter @road-dna/design-tokens build && pnpm -r --if-present build",
     "build:shared": "pnpm --filter @road-dna/design-tokens build && pnpm --filter @road-dna/contracts build && pnpm --filter @road-dna/ui build",
     "check": "pnpm build:shared && pnpm -r --if-present lint && pnpm -r --if-present typecheck && pnpm -r --if-present test",
+    "check:all": "pnpm check && pnpm check:flutter",
+    "check:flutter": "(cd apps/mobile && flutter analyze && flutter test test/unit) && (cd packages/road_dna_design && flutter analyze && flutter test)",
     "dev": "pnpm --parallel --filter @road-dna/api --filter @road-dna/dashboard dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "pnpm build:shared && pnpm -r --if-present lint",
     "test": "pnpm build:shared && pnpm -r --if-present test",
+    "test:all": "pnpm test && pnpm test:flutter",
+    "test:flutter": "(cd apps/mobile && flutter test test/unit) && (cd packages/road_dna_design && flutter test)",
     "typecheck": "pnpm build:shared && pnpm -r --if-present typecheck"
   },
   "devDependencies": {

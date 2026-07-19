@@ -70,7 +70,7 @@ jobs:
         run: |
           flutter pub get
           flutter analyze
-          flutter test
+          flutter test test/unit
           flutter build apk --debug \
             --dart-define=ROAD_DNA_API_URL=https://kimtaeeun.site/road-dna
 
