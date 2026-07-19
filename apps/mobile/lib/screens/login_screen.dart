@@ -9,8 +9,7 @@ import '../ui/companion_widgets.dart';
 
 const _carouselInterval = Duration(milliseconds: 3500);
 const _carouselAnimationDuration = Duration(milliseconds: 320);
-const _carouselSwipeThreshold = 44.0;
-const _carouselFlingThreshold = 320.0;
+const _initialCarouselPage = 3000;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -26,21 +25,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
+  late final PageController _pageController;
   Timer? _advanceTimer;
-  Timer? _transitionTimer;
   var _activeIndex = 0;
+  var _currentPage = _initialCarouselPage;
   var _disableAnimations = false;
   var _hasSeenForegroundLifecycle = false;
   var _isAppActive = true;
-  var _isDragging = false;
-  var _isTransitioning = false;
+  var _isAnimatingPage = false;
+  var _isUserInteracting = false;
   var _wasExplicitlyBackgrounded = false;
-  var _horizontalDragDistance = 0.0;
-  var _transitionDirection = 1;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _initialCarouselPage);
     WidgetsBinding.instance.addObserver(this);
     final lifecycleState =
         widget.initialLifecycleStateOverride ??
@@ -52,10 +51,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         lifecycleState == AppLifecycleState.paused ||
         lifecycleState == AppLifecycleState.hidden;
     _isAppActive = _canBootstrapCarousel(lifecycleState);
-    // A cold Android launch can still report `detached` before its first
-    // lifecycle message. Start the clock now as well as after the first frame
-    // so a missed `resumed` event cannot leave the carousel permanently idle.
-    _scheduleAdvance();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _isAppActive = _canBootstrapCarousel(
@@ -74,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _advanceTimer?.cancel();
-    _transitionTimer?.cancel();
+    _pageController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -114,7 +109,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   void _scheduleAdvance() {
     _advanceTimer?.cancel();
     _advanceTimer = null;
-    if (!_isAppActive || _isDragging || _isTransitioning || !mounted) return;
+    if (!_isAppActive ||
+        _isAnimatingPage ||
+        _isUserInteracting ||
+        !_pageController.hasClients ||
+        !mounted) {
+      return;
+    }
     _advanceTimer = Timer(_carouselInterval, () {
       _advanceTimer = null;
       _advance();
@@ -122,83 +123,67 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _advance() {
-    if (!mounted || !_isAppActive || _isDragging || _isTransitioning) return;
-    _showRelativeSlide(1);
+    if (!mounted ||
+        !_isAppActive ||
+        _isAnimatingPage ||
+        _isUserInteracting ||
+        !_pageController.hasClients) {
+      return;
+    }
+    _showPhysicalPage(_currentPage + 1);
   }
 
-  void _showRelativeSlide(int delta) {
-    final nextIndex =
-        (_activeIndex + delta + _loginSlides.length) % _loginSlides.length;
-    _showSlide(nextIndex, direction: delta.sign);
-  }
-
-  void _showSlide(int targetIndex, {required int direction}) {
-    if (!mounted) return;
-    if (_isTransitioning) return;
-    if (targetIndex == _activeIndex) {
+  void _showPhysicalPage(int targetPage) {
+    if (!mounted || !_pageController.hasClients || _isAnimatingPage) return;
+    if (targetPage == _currentPage) {
       _scheduleAdvance();
       return;
     }
 
     _advanceTimer?.cancel();
     _advanceTimer = null;
-    _transitionTimer?.cancel();
-    setState(() {
-      _isTransitioning = true;
-      _transitionDirection = direction;
-      _activeIndex = targetIndex;
-    });
-    final transitionDuration = _disableAnimations
-        ? Duration.zero
-        : _carouselAnimationDuration;
-    if (transitionDuration == Duration.zero) {
-      _isTransitioning = false;
+    _isAnimatingPage = true;
+    if (_disableAnimations) {
+      _pageController.jumpToPage(targetPage);
+      _isAnimatingPage = false;
       _scheduleAdvance();
       return;
     }
-    _transitionTimer = Timer(transitionDuration, () {
-      _transitionTimer = null;
-      if (!mounted) return;
-      _isTransitioning = false;
-      _scheduleAdvance();
-    });
+
+    unawaited(
+      _pageController
+          .animateToPage(
+            targetPage,
+            duration: _carouselAnimationDuration,
+            curve: Curves.easeInOutCubic,
+          )
+          .whenComplete(() {
+            if (!mounted) return;
+            _isAnimatingPage = false;
+            _scheduleAdvance();
+          }),
+    );
   }
 
-  void _handleHorizontalDragStart(DragStartDetails details) {
-    _advanceTimer?.cancel();
-    _advanceTimer = null;
-    _isDragging = true;
-    _horizontalDragDistance = 0;
-  }
-
-  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    _horizontalDragDistance += details.primaryDelta ?? 0;
-  }
-
-  void _handleHorizontalDragEnd(DragEndDetails details) {
-    _isDragging = false;
-    final velocity = details.primaryVelocity ?? 0;
-    final shouldAdvance =
-        _horizontalDragDistance <= -_carouselSwipeThreshold ||
-        velocity <= -_carouselFlingThreshold;
-    final shouldGoBack =
-        _horizontalDragDistance >= _carouselSwipeThreshold ||
-        velocity >= _carouselFlingThreshold;
-
-    if (shouldAdvance) {
-      _showRelativeSlide(1);
-    } else if (shouldGoBack) {
-      _showRelativeSlide(-1);
-    } else {
-      _scheduleAdvance();
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _advanceTimer?.cancel();
+      _advanceTimer = null;
+      _isUserInteracting = true;
+    } else if (notification is ScrollEndNotification) {
+      _isUserInteracting = false;
+      if (mounted) _scheduleAdvance();
     }
-    _horizontalDragDistance = 0;
+    return false;
   }
 
-  void _handleHorizontalDragCancel() {
-    _isDragging = false;
-    _horizontalDragDistance = 0;
-    _scheduleAdvance();
+  void _handlePageChanged(int page) {
+    _currentPage = page;
+    final nextIndex = page % _loginSlides.length;
+    if (nextIndex == _activeIndex) return;
+    setState(() => _activeIndex = nextIndex);
   }
 
   void _goToSlide(int targetIndex) {
@@ -207,10 +192,14 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       return;
     }
 
-    var direction = targetIndex - _activeIndex;
-    if (direction > 1) direction -= _loginSlides.length;
-    if (direction < -1) direction += _loginSlides.length;
-    _showSlide(targetIndex, direction: direction.sign);
+    final forwardDelta =
+        (targetIndex - _activeIndex + _loginSlides.length) %
+        _loginSlides.length;
+    final backwardDelta = forwardDelta - _loginSlides.length;
+    final delta = forwardDelta <= backwardDelta.abs()
+        ? forwardDelta
+        : backwardDelta;
+    _showPhysicalPage(_currentPage + delta);
   }
 
   @override
@@ -234,58 +223,22 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     key: const ValueKey('login-carousel-viewport'),
                     child: SizedBox(
                       height: 246,
-                      child: GestureDetector(
-                        key: const ValueKey('login-carousel'),
-                        behavior: HitTestBehavior.opaque,
-                        onHorizontalDragStart: _handleHorizontalDragStart,
-                        onHorizontalDragUpdate: _handleHorizontalDragUpdate,
-                        onHorizontalDragEnd: _handleHorizontalDragEnd,
-                        onHorizontalDragCancel: _handleHorizontalDragCancel,
-                        child: AnimatedSwitcher(
-                          duration: _disableAnimations
-                              ? Duration.zero
-                              : _carouselAnimationDuration,
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeOutCubic,
-                          layoutBuilder: (currentChild, previousChildren) =>
-                              Stack(
-                                alignment: Alignment.center,
-                                fit: StackFit.expand,
-                                clipBehavior: Clip.hardEdge,
-                                children: [...previousChildren, ?currentChild],
-                              ),
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                                opacity: animation.drive(
-                                  CurveTween(
-                                    curve: const Interval(
-                                      0.55,
-                                      1,
-                                      curve: Curves.easeOut,
-                                    ),
-                                  ),
-                                ),
-                                child: SlideTransition(
-                                  position: Tween<Offset>(
-                                    begin: Offset(
-                                      0.012 * _transitionDirection,
-                                      0,
-                                    ),
-                                    end: Offset.zero,
-                                  ).animate(animation),
-                                  child: ScaleTransition(
-                                    scale: Tween<double>(
-                                      begin: 0.992,
-                                      end: 1,
-                                    ).animate(animation),
-                                    child: child,
-                                  ),
-                                ),
-                              ),
-                          child: _LoginCarouselSlide(
-                            key: ValueKey('login-carousel-slide-$_activeIndex'),
-                            slide: _loginSlides[_activeIndex],
-                          ),
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _handleScrollNotification,
+                        child: PageView.builder(
+                          key: const ValueKey('login-carousel-page-view'),
+                          controller: _pageController,
+                          clipBehavior: Clip.hardEdge,
+                          onPageChanged: _handlePageChanged,
+                          padEnds: false,
+                          physics: const PageScrollPhysics(),
+                          itemBuilder: (context, page) {
+                            final slideIndex = page % _loginSlides.length;
+                            return _LoginCarouselSlide(
+                              key: ValueKey('login-carousel-slide-$slideIndex'),
+                              slide: _loginSlides[slideIndex],
+                            );
+                          },
                         ),
                       ),
                     ),
