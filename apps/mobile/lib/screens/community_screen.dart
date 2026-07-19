@@ -101,6 +101,8 @@ class _CommunityScreenState extends ConsumerState<CommunityScreen> {
                                 onConfirm: () => ref
                                     .read(communityPostsProvider.notifier)
                                     .confirm(post.id),
+                                onOpen: () =>
+                                    context.push('/community/${post.id}'),
                                 post: post,
                               );
                             },
@@ -251,9 +253,14 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _CommunityPostCard extends StatelessWidget {
-  const _CommunityPostCard({required this.onConfirm, required this.post});
+  const _CommunityPostCard({
+    required this.onConfirm,
+    required this.onOpen,
+    required this.post,
+  });
 
   final VoidCallback onConfirm;
+  final VoidCallback onOpen;
   final CommunityPost post;
 
   @override
@@ -281,8 +288,10 @@ class _CommunityPostCard extends StatelessWidget {
         : CompanionColors.amber;
 
     return CompanionCard(
+      onTap: onOpen,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       radius: 22,
+      semanticLabel: '${post.name}의 ${post.location} 커뮤니티 글 상세 보기',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -328,10 +337,21 @@ class _CommunityPostCard extends StatelessWidget {
                   ],
                 ),
               ),
-              CompanionTag(
-                backgroundColor: tagBackground,
-                foregroundColor: tagForeground,
-                label: isConfirmed ? '확인됨' : '확인 필요',
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CompanionTag(
+                    backgroundColor: tagBackground,
+                    foregroundColor: tagForeground,
+                    label: isConfirmed ? '확인됨' : '확인 필요',
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: CompanionColors.faint,
+                    size: 18,
+                  ),
+                ],
               ),
             ],
           ),

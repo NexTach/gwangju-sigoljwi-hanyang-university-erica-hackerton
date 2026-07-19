@@ -19,6 +19,7 @@ class CommunityPost {
     required this.roadSegmentId,
     required this.status,
     required this.time,
+    this.imageBytes,
     this.situation,
   });
 
@@ -26,6 +27,7 @@ class CommunityPost {
   final String body;
   final int confirmations;
   final int id;
+  final Uint8List? imageBytes;
   final String initial;
   final bool isInNeighborhood;
   final String location;
@@ -41,6 +43,7 @@ class CommunityPost {
         body: body,
         confirmations: confirmations ?? this.confirmations,
         id: id,
+        imageBytes: imageBytes,
         initial: initial,
         isInNeighborhood: isInNeighborhood,
         location: location,
@@ -119,6 +122,7 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
     required String body,
     required String initial,
     required String situation,
+    Uint8List? imageBytes,
   }) {
     final normalizedBody = body.trim();
     if (normalizedBody.isEmpty) return;
@@ -132,6 +136,7 @@ class CommunityPostsController extends Notifier<List<CommunityPost>> {
         body: normalizedBody,
         confirmations: 0,
         id: _nextId++,
+        imageBytes: imageBytes == null ? null : Uint8List.fromList(imageBytes),
         initial: initial,
         isInNeighborhood: true,
         location: '반룡로',

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:road_dna_design/road_dna_design.dart';
 
 import 'core/models.dart';
+import 'screens/community_detail_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/community_write_screen.dart';
 import 'screens/completion_report_screen.dart';
@@ -105,6 +106,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         builder: (context, state) => const CommunityWriteScreen(),
         path: '/community/write',
+      ),
+      GoRoute(
+        builder: (context, state) => CommunityDetailScreen(
+          postId: int.tryParse(state.pathParameters['id'] ?? '') ?? -1,
+        ),
+        path: '/community/:id',
       ),
       GoRoute(
         builder: (context, state) => const NotificationsScreen(),

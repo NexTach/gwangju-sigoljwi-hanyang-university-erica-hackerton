@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../ui/community_state.dart';
 import '../ui/companion_theme.dart';
@@ -16,11 +20,20 @@ class CommunityWriteScreen extends ConsumerStatefulWidget {
 }
 
 class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
+  static const _maximumPhotoBytes = 12 * 1024 * 1024;
   static const _situations = ['단차 · 파손', '경사로 없음', '공사 중', '개선됨'];
 
   final _bodyController = TextEditingController();
-  var _hasPhoto = false;
+  final _imagePicker = ImagePicker();
+  var _isPickingPhoto = false;
+  Uint8List? _photoBytes;
   var _selectedSituation = _situations.first;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_recoverLostPhoto());
+  }
 
   @override
   void dispose() {
@@ -157,50 +170,145 @@ class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          CompanionCard(
-            border: _hasPhoto ? CompanionColors.coral : null,
-            onTap: _togglePhoto,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-            radius: 20,
-            selected: _hasPhoto,
-            semanticLabel: _hasPhoto ? '추가한 사진 제거하기' : '사진 추가하기',
-            child: Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: _hasPhoto
-                        ? CompanionColors.coralSoft
-                        : CompanionColors.creamMuted,
+          _buildPhotoAttachment(context),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildPhotoAttachment(BuildContext context) {
+    final photoBytes = _photoBytes;
+    if (photoBytes == null) {
+      return CompanionCard(
+        onTap: _isPickingPhoto ? null : _pickPhoto,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        radius: 20,
+        semanticLabel: '사진 보관함에서 사진 한 장 추가하기',
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: CompanionColors.creamMuted,
+              ),
+              child: SizedBox.square(
+                dimension: 44,
+                child: Center(
+                  child: _isPickingPhoto
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(
+                            color: CompanionColors.coralAction,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.add_photo_alternate_outlined,
+                          color: CompanionColors.muted,
+                          size: 21,
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isPickingPhoto ? '사진을 불러오는 중이에요' : '사진 추가하기',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: CompanionColors.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  child: SizedBox.square(
-                    dimension: 44,
+                  const SizedBox(height: 2),
+                  Text(
+                    '등록하면 게시글 상세 화면에서 보여요',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return CompanionCard(
+      border: CompanionColors.coral,
+      padding: EdgeInsets.zero,
+      radius: 20,
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.memory(
+                photoBytes,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                semanticLabel: '첨부할 커뮤니티 사진 미리보기',
+                errorBuilder: (context, error, stackTrace) => const ColoredBox(
+                  color: CompanionColors.creamMuted,
+                  child: Center(
                     child: Icon(
-                      _hasPhoto ? Icons.check_rounded : Icons.image_outlined,
-                      color: _hasPhoto
-                          ? CompanionColors.coralAction
-                          : CompanionColors.muted,
-                      size: 21,
+                      Icons.broken_image_outlined,
+                      color: CompanionColors.muted,
+                      size: 34,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  _hasPhoto ? '사진이 추가됐어요' : '사진 추가하기',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: _hasPhoto
-                        ? CompanionColors.coralAction
-                        : CompanionColors.muted,
-                    fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '사진 1장 첨부됨',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '목록에는 표시되지 않아요',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
+                ),
+                TextButton(
+                  onPressed: _isPickingPhoto ? null : _pickPhoto,
+                  style: companionButtonStyle(
+                    TextButton.styleFrom(
+                      foregroundColor: CompanionColors.coralAction,
+                    ),
+                  ),
+                  child: const Text('변경'),
+                ),
+                CompanionIconButton(
+                  backgroundColor: CompanionColors.creamMuted,
+                  foregroundColor: CompanionColors.muted,
+                  icon: Icons.delete_outline_rounded,
+                  onPressed: _removePhoto,
+                  semanticLabel: '첨부한 사진 제거',
+                  size: 40,
                 ),
               ],
             ),
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 
   void _goBack() {
     if (context.canPop()) {
@@ -223,6 +331,7 @@ class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
         .addPost(
           author: '$nickname님',
           body: body,
+          imageBytes: _photoBytes,
           initial: nickname.substring(0, 1),
           situation: _selectedSituation,
         );
@@ -234,12 +343,70 @@ class _CommunityWriteScreenState extends ConsumerState<CommunityWriteScreen> {
     }
   }
 
-  void _togglePhoto() {
-    setState(() => _hasPhoto = !_hasPhoto);
-    showCompanionMessage(
-      context,
-      _hasPhoto ? '사진 한 장을 추가했어요.' : '추가한 사진을 지웠어요.',
-    );
+  Future<void> _pickPhoto() async {
+    if (_isPickingPhoto) return;
+    setState(() => _isPickingPhoto = true);
+    try {
+      final photo = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 82,
+        maxHeight: 1600,
+        maxWidth: 1600,
+        requestFullMetadata: false,
+      );
+      if (photo != null) await _usePhoto(photo);
+    } on PlatformException {
+      if (mounted) {
+        showCompanionMessage(context, '사진을 열지 못했어요. 다시 선택해주세요.');
+      }
+    } on Exception {
+      if (mounted) {
+        showCompanionMessage(context, '사진을 열지 못했어요. 다시 선택해주세요.');
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingPhoto = false);
+    }
+  }
+
+  Future<void> _recoverLostPhoto() async {
+    try {
+      final response = await _imagePicker.retrieveLostData();
+      if (!mounted || response.isEmpty) return;
+      final files = response.files;
+      if (files != null && files.isNotEmpty) {
+        await _usePhoto(files.first);
+      } else if (response.exception != null && mounted) {
+        showCompanionMessage(context, '선택하던 사진을 복구하지 못했어요.');
+      }
+    } on PlatformException {
+      if (mounted) {
+        showCompanionMessage(context, '선택하던 사진을 복구하지 못했어요.');
+      }
+    } on Exception {
+      if (mounted) {
+        showCompanionMessage(context, '선택하던 사진을 복구하지 못했어요.');
+      }
+    }
+  }
+
+  Future<void> _usePhoto(XFile photo) async {
+    final bytes = await photo.readAsBytes();
+    if (!mounted) return;
+    if (bytes.isEmpty) {
+      showCompanionMessage(context, '비어 있는 사진은 첨부할 수 없어요.');
+      return;
+    }
+    if (bytes.lengthInBytes > _maximumPhotoBytes) {
+      showCompanionMessage(context, '12MB 이하 사진을 선택해주세요.');
+      return;
+    }
+    setState(() => _photoBytes = Uint8List.fromList(bytes));
+    showCompanionMessage(context, '사진을 첨부했어요.');
+  }
+
+  void _removePhoto() {
+    setState(() => _photoBytes = null);
+    showCompanionMessage(context, '첨부한 사진을 지웠어요.');
   }
 }
 
